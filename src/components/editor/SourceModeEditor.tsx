@@ -72,7 +72,14 @@ export const SourceModeEditor: React.FC<SourceModeEditorProps> = React.memo(({
     return text.split('\n');
   }, [text]);
 
+  const historyPushTimerRef = useRef<any>(null);
+
   const pushHistory = useCallback((newText: string) => {
+    if (historyPushTimerRef.current) {
+      clearTimeout(historyPushTimerRef.current);
+      historyPushTimerRef.current = null;
+    }
+    if (newText === lastPushedTextRef.current) return;
     const { stack, index } = historyRef.current;
     const newStack = stack.slice(0, index + 1);
     newStack.push(newText);
@@ -80,6 +87,20 @@ export const SourceModeEditor: React.FC<SourceModeEditorProps> = React.memo(({
     historyRef.current = { stack: newStack, index: newStack.length - 1 };
     lastPushedTextRef.current = newText;
   }, []);
+
+  const debouncedPushHistory = useCallback((newText: string) => {
+    if (historyPushTimerRef.current) {
+      clearTimeout(historyPushTimerRef.current);
+    }
+    // If text ends with whitespace, punctuation, or line break, push immediately
+    if (/\s$/.test(newText) || /\n$/.test(newText) || Math.abs(newText.length - lastPushedTextRef.current.length) > 5) {
+      pushHistory(newText);
+    } else {
+      historyPushTimerRef.current = setTimeout(() => {
+        pushHistory(newText);
+      }, 350);
+    }
+  }, [pushHistory]);
 
   // Handle changes and sync back to Flint document models
   const handleChange = useCallback((newText: string) => {
@@ -359,9 +380,7 @@ export const SourceModeEditor: React.FC<SourceModeEditorProps> = React.memo(({
         readOnly={!editable}
         onChange={(e) => {
           handleChange(e.target.value);
-          if (Math.abs(e.target.value.length - lastPushedTextRef.current.length) > 10) {
-            pushHistory(e.target.value);
-          }
+          debouncedPushHistory(e.target.value);
         }}
         onKeyDown={handleKeyDown}
         spellCheck={false}

@@ -73,8 +73,7 @@ export function toggleFormat(editor: any, marker: string) {
       return editor
         .chain()
         .focus()
-        .deleteRange({ from: to, to: to + markerLen })
-        .deleteRange({ from: from - markerLen, to: from })
+        .insertContentAt({ from: from - markerLen, to: to + markerLen }, selText)
         .setTextSelection({ from: from - markerLen, to: from - markerLen + innerLength })
         .run();
     }
@@ -185,14 +184,22 @@ export const MarkdownShortcuts = Extension.create({
       'Mod-Shift-S': ({ editor }) => toggleFormat(editor, '~~'),
 
       // Highlight: Ctrl+Shift+H / Cmd+Shift+H
-      'Mod-Shift-h': ({ editor }) => {
-        const color = useSettingsStore.getState().highlightColor || '#ffd54f';
-        return editor.chain().focus().toggleHighlight({ color }).run();
-      },
-      'Mod-Shift-H': ({ editor }) => {
-        const color = useSettingsStore.getState().highlightColor || '#ffd54f';
-        return editor.chain().focus().toggleHighlight({ color }).run();
-      },
+      'Mod-Shift-h': ({ editor }) => toggleFormat(editor, '=='),
+      'Mod-Shift-H': ({ editor }) => toggleFormat(editor, '=='),
+      'Shift-Mod-h': ({ editor }) => toggleFormat(editor, '=='),
+      'Shift-Mod-H': ({ editor }) => toggleFormat(editor, '=='),
+
+      // Explicit Undo: Ctrl+Z / Cmd+Z (all case variations)
+      'Mod-z': ({ editor }) => editor.commands.undo(),
+      'Mod-Z': ({ editor }) => editor.commands.undo(),
+
+      // Explicit Redo: Ctrl+Y / Cmd+Y, Ctrl+Shift+Z / Cmd+Shift+Z
+      'Mod-y': ({ editor }) => editor.commands.redo(),
+      'Mod-Y': ({ editor }) => editor.commands.redo(),
+      'Mod-Shift-z': ({ editor }) => editor.commands.redo(),
+      'Mod-Shift-Z': ({ editor }) => editor.commands.redo(),
+      'Shift-Mod-z': ({ editor }) => editor.commands.redo(),
+      'Shift-Mod-Z': ({ editor }) => editor.commands.redo(),
 
       // Math: Ctrl+Shift+4 / Cmd+Shift+4 or Ctrl+$
       'Mod-Shift-4': ({ editor }) => editor.commands.insertMathChip({ startEditing: true }),
@@ -289,6 +296,7 @@ export function isFormatActive(editor: any, marker: string): boolean {
         if (marker === '**') return countBefore >= 2 && countAfter >= 2;
         if (marker === '*') return (countBefore === 1 || countBefore >= 3) && (countAfter === 1 || countAfter >= 3);
         if (marker === '~~') return countBefore >= 2 && countAfter >= 2;
+        if (marker === '==') return countBefore >= 2 && countAfter >= 2;
         if (marker === '`') return countBefore === 1 && countAfter === 1;
         if (marker === '$') return countBefore === 1 && countAfter === 1;
         if (marker === '%%') return countBefore >= 2 && countAfter >= 2;
@@ -315,6 +323,14 @@ export function isFormatActive(editor: any, marker: string): boolean {
         }
       } else if (marker === '~~') {
         const regex = /~~([^~\n]+)~~/g;
+        let match: RegExpExecArray | null;
+        while ((match = regex.exec(blockText)) !== null) {
+          if (selStartInBlock >= match.index && selStartInBlock <= match.index + match[0].length) {
+            return true;
+          }
+        }
+      } else if (marker === '==') {
+        const regex = /==([^=\n]+)==/g;
         let match: RegExpExecArray | null;
         while ((match = regex.exec(blockText)) !== null) {
           if (selStartInBlock >= match.index && selStartInBlock <= match.index + match[0].length) {

@@ -511,6 +511,7 @@ export function jsonToMarkdown(
             if (m.type === 'italic') text = `*${text}*`;
             if (m.type === 'code') text = `\`${text}\``;
             if (m.type === 'strike') text = `~~${text}~~`;
+            if (m.type === 'highlight') text = `==${text}==`;
           }
         }
         return text;

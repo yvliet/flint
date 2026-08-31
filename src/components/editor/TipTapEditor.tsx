@@ -833,16 +833,13 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = React.memo(({
             {
               id: 'fmt-highlight',
               title: 'Highlight',
+              shortcut: 'Ctrl+Shift+H',
               icon: <HighlighterIcon size={14} />,
-              checked: editor.isActive('highlight'),
+              checked: isFormatActive(editor, '==') || editor.isActive('highlight'),
               onClick: () => {
-                const currentHlColor = useSettingsStore.getState().highlightColor || '#ffd54f';
-                applyHighlight(currentHlColor);
+                restoreSelection();
+                toggleFormat(editor, '==');
               },
-              rightSlot: <HighlightColorSwatch />,
-              customSubmenu: () => (
-                <HighlightSubmenuContent applyHighlight={applyHighlight} />
-              ),
             },
             { type: 'separator' },
             {
@@ -1268,8 +1265,11 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = React.memo(({
 
   // Notify parent of editor instance
   useEffect(() => {
-    if (editor && onEditorReady) {
-      onEditorReady(editor);
+    if (editor) {
+      (window as any).__flintEditor = editor;
+      if (onEditorReady) {
+        onEditorReady(editor);
+      }
     }
   }, [editor, onEditorReady]);
 

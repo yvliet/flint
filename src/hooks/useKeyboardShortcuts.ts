@@ -443,23 +443,28 @@ export function useKeyboardShortcuts() {
       }
 
       // 17. History Navigation: Alt + Left / Alt + A and Alt + Right / Alt + D (when not inside inputs)
-      const target = e.target as HTMLElement | null;
+      const target = (e.target || document.activeElement) as HTMLElement | null;
+      const activeEl = document.activeElement as HTMLElement | null;
       const isInput =
         target?.tagName === 'INPUT' ||
         target?.tagName === 'TEXTAREA' ||
         target?.tagName === 'MATH-FIELD' ||
-        Boolean(target?.closest('math-field'));
+        Boolean(target?.closest('math-field')) ||
+        activeEl?.tagName === 'INPUT' ||
+        activeEl?.tagName === 'TEXTAREA' ||
+        activeEl?.tagName === 'MATH-FIELD';
       const isContentEditor =
         Boolean(target?.isContentEditable) ||
         Boolean(target?.closest('[contenteditable="true"]')) ||
         Boolean(target?.closest('.ProseMirror')) ||
         Boolean(target?.closest('.tiptap')) ||
-        Boolean(target?.closest('math-field')) ||
-        target?.tagName === 'MATH-FIELD';
-      const isSidebarFocused = Boolean(target?.closest('[data-sidebar="true"]'));
+        Boolean(activeEl?.isContentEditable) ||
+        Boolean(activeEl?.closest('[contenteditable="true"]')) ||
+        Boolean(activeEl?.closest('.ProseMirror')) ||
+        Boolean(activeEl?.closest('.tiptap'));
 
       // 18. File Action Undo & Redo (Ctrl+Z and Ctrl+Y / Ctrl+Shift+Z)
-      if ((!isContentEditor && !isInput) || (isSidebarFocused && !isInput)) {
+      if (!isContentEditor && !isInput) {
         const isUndo =
           isMatch('workspace:undo-file-action', ['Ctrl+Z']) ||
           ((keyLower === 'z' || code === 'KeyZ') && isCtrlOrMeta && !isShift && !isAlt);

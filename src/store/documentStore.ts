@@ -400,6 +400,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       ]
     });
 
+    const activeDocBefore = get().activeDocument?.id || null;
     const doc: DocumentItem = {
       id,
       parent_id: targetParentId,
@@ -424,6 +425,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       selectedDocIds: [doc.id],
       lastSelectedDocId: doc.id,
     }));
+
+    useFileHistoryStore.getState().recordCreate(doc, activeDocBefore);
 
     if (autoOpenInMain) {
       ws.setMainViewMode('document');
@@ -484,6 +487,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const id = `folder-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
     const now = Date.now();
 
+    const activeDocBefore = get().activeDocument?.id || null;
     const doc: DocumentItem = {
       id,
       parent_id: parentId,
@@ -502,6 +506,8 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       editingDocId: doc.id,
       searchQuery: '',
     }));
+
+    useFileHistoryStore.getState().recordCreate(doc, activeDocBefore);
 
     useWorkspaceStore.getState().setActiveLeftView('files');
     useWorkspaceStore.getState().setIsLeftSidebarOpen(true);
@@ -685,6 +691,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
     let movedCount = 0;
     let lastError: string | undefined;
+    const isBatch = topLevelIds.length > 1;
+    const batchMoves: {
+      id: string;
+      oldParentId: string | null;
+      newParentId: string | null;
+      title: string;
+      oldTitle?: string;
+      newTitle?: string;
+    }[] = [];
 
     for (const id of topLevelIds) {
       if (id === targetParentId) continue;
@@ -692,12 +707,29 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       if (doc?.is_folder && targetParentId && isDescendant(targetParentId, id, docs)) {
         continue;
       }
-      const res = await get().moveDocument(id, targetParentId);
+      const oldParentId = doc?.parent_id || null;
+      const oldTitle = doc?.title || '';
+
+      const res = await get().moveDocument(id, targetParentId, !isBatch);
       if (res.success) {
         movedCount++;
+        if (isBatch && doc) {
+          batchMoves.push({
+            id,
+            oldParentId,
+            newParentId: targetParentId,
+            title: res.newTitle || oldTitle,
+            oldTitle,
+            newTitle: res.newTitle || oldTitle,
+          });
+        }
       } else if (res.error) {
         lastError = res.error;
       }
+    }
+
+    if (isBatch && batchMoves.length > 0) {
+      useFileHistoryStore.getState().recordBatchMove(batchMoves);
     }
 
     return {

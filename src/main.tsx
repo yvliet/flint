@@ -25,6 +25,12 @@ appInstance.extensions.init();
 
 if (typeof window !== 'undefined') {
   (window as any).appInstance = appInstance;
+  (window as any).__flintStores = {
+    documentStore: useDocumentStore,
+    fileHistoryStore: useFileHistoryStore,
+    workspaceStore: useWorkspaceStore,
+    settingsStore: useSettingsStore,
+  };
 
   // Suppress default OS / browser context menu globally
   window.addEventListener('contextmenu', (e: MouseEvent) => {
