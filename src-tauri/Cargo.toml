@@ -1,0 +1,26 @@
+[package]
+name = "flint-desktop"
+version = "0.1.0"
+description = "Flint Local-First Hybrid Document and Knowledge Engine"
+authors = ["Yuliet Li"]
+edition = "2021"
+
+[lib]
+name = "flint_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = ["image-png"] }
+tauri-plugin-dialog = "2.0"
+tauri-plugin-fs = "2.0"
+tauri-plugin-shell = "2.0"
+tauri-plugin-sql = { version = "2.0", features = ["sqlite"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+walkdir = "2.5"
+dirs = "5.0"
+notify = "6.1"
+image = { version = "0.25", default-features = false, features = ["png"] }

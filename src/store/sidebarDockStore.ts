@@ -1,0 +1,411 @@
+import { create } from 'zustand';
+import { TabItem } from '@/types';
+
+export type DockZone = 'left-top' | 'left-bottom' | 'right-top' | 'right-bottom';
+
+export interface DockItem {
+  id: string;
+  type: 'document' | 'extension';
+  documentId?: string;
+  title: string;
+  viewType?: string;
+  viewMode?: string;
+  iconType?: string;
+  zone: DockZone;
+  enabled: boolean;
+  order: number;
+  extensionId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SidebarDockState {
+  items: DockItem[];
+  activeItemByZone: Record<DockZone, string | null>;
+  splitRatioLeft: number;
+  splitRatioRight: number;
+
+  // Actions
+  dockTab: (tab: TabItem, zone: DockZone, insertIndex?: number) => void;
+  undockItem: (itemId: string) => void;
+  toggleItemEnabled: (itemId: string, enabled?: boolean) => void;
+  moveItemToZone: (itemId: string, targetZone: DockZone, insertIndex?: number) => void;
+  setActiveItemInZone: (zone: DockZone, itemId: string | null) => void;
+  reorderItemsInZone: (zone: DockZone, fromIndex: number, toIndex: number) => void;
+  reorderItemInZone: (zone: DockZone, itemId: string, targetSlotIndex: number) => void;
+  setSplitRatio: (side: 'left' | 'right', ratio: number) => void;
+  syncExtensionTabs: (tabs: Array<{ id: string; title: string; side: 'left' | 'right'; order?: number }>) => void;
+}
+
+const STORAGE_KEY = 'flint_sidebar_dock_state_v1';
+
+function loadPersistedState(): {
+  items: DockItem[];
+  activeItemByZone: Record<DockZone, string | null>;
+  splitRatioLeft: number;
+  splitRatioRight: number;
+} {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const cleanedItems: DockItem[] = Array.isArray(parsed.items)
+        ? parsed.items.filter((it: any) => {
+            if (!it || !it.id) return false;
+            // Transient or invalid tab items
+            if (it.id.startsWith('tab-') || it.title === 'New tab') {
+              return false;
+            }
+            // Documents must only remain if enabled
+            if (it.type === 'document' || it.documentId || it.id.startsWith('doc:')) {
+              return it.enabled !== false;
+            }
+            return true;
+          })
+        : [];
+
+      return {
+        items: cleanedItems,
+        activeItemByZone: parsed.activeItemByZone || {
+          'left-top': null,
+          'left-bottom': null,
+          'right-top': null,
+          'right-bottom': null,
+        },
+        splitRatioLeft: typeof parsed.splitRatioLeft === 'number' ? parsed.splitRatioLeft : 0.5,
+        splitRatioRight: typeof parsed.splitRatioRight === 'number' ? parsed.splitRatioRight : 0.5,
+      };
+    }
+  } catch (err) {
+    console.error('[SidebarDockStore] Failed to load persisted state:', err);
+  }
+
+  return {
+    items: [],
+    activeItemByZone: {
+      'left-top': null,
+      'left-bottom': null,
+      'right-top': null,
+      'right-bottom': null,
+    },
+    splitRatioLeft: 0.5,
+    splitRatioRight: 0.5,
+  };
+}
+
+function saveState(state: {
+  items: DockItem[];
+  activeItemByZone: Record<DockZone, string | null>;
+  splitRatioLeft: number;
+  splitRatioRight: number;
+}) {
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        items: state.items,
+        activeItemByZone: state.activeItemByZone,
+        splitRatioLeft: state.splitRatioLeft,
+        splitRatioRight: state.splitRatioRight,
+      })
+    );
+  } catch (err) {
+    console.error('[SidebarDockStore] Failed to save state:', err);
+  }
+}
+
+const initialPersisted = loadPersistedState();
+
+export const useSidebarDockStore = create<SidebarDockState>((set, get) => ({
+  items: initialPersisted.items,
+  activeItemByZone: initialPersisted.activeItemByZone,
+  splitRatioLeft: initialPersisted.splitRatioLeft,
+  splitRatioRight: initialPersisted.splitRatioRight,
+
+  dockTab: (tab, zone, insertIndex) => {
+    const { items, activeItemByZone } = get();
+    const isDoc = !!(
+      (tab.document_id && !tab.document_id.startsWith('__')) ||
+      tab.view_type === 'document' ||
+      !tab.view_type ||
+      tab.view_mode === 'document' ||
+      (tab.title !== 'Search' && tab.title !== 'Files & folders')
+    );
+    const existingIndex = items.findIndex((it) => (isDoc ? it.documentId === tab.document_id : it.id === tab.id));
+
+    let updatedItems = [...items];
+    const newItemId = isDoc ? `doc:${tab.document_id || tab.id}` : tab.id;
+
+    if (existingIndex !== -1) {
+      // Item already exists, move to target zone
+      const [existing] = updatedItems.splice(existingIndex, 1);
+      existing.zone = zone;
+      existing.enabled = true;
+      
+      const zoneItems = updatedItems.filter((it) => it.zone === zone).sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
+      const targetIdx = typeof insertIndex === 'number' ? Math.max(0, Math.min(zoneItems.length, insertIndex)) : zoneItems.length;
+      zoneItems.splice(targetIdx, 0, existing);
+      
+      // Reassign sequential orders
+      const orderMap = new Map<string, number>();
+      zoneItems.forEach((it, idx) => orderMap.set(it.id, idx));
+      updatedItems = updatedItems.map((it) => (orderMap.has(it.id) ? { ...it, order: orderMap.get(it.id)! } : it));
+      if (!orderMap.has(existing.id)) {
+        existing.order = targetIdx;
+        updatedItems.push(existing);
+      }
+    } else {
+      const zoneItems = items.filter((it) => it.zone === zone).sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
+      const targetIdx = typeof insertIndex === 'number' ? Math.max(0, Math.min(zoneItems.length, insertIndex)) : zoneItems.length;
+      const newItem: DockItem = {
+        id: newItemId,
+        type: isDoc ? 'document' : 'extension',
+        documentId: tab.document_id || tab.id,
+        title: tab.title || (isDoc ? 'Untitled' : 'Tab'),
+        viewType: tab.view_type || tab.view_mode || 'document',
+        viewMode: tab.view_mode,
+        iconType: typeof tab.icon === 'string' ? tab.icon : undefined,
+        zone,
+        enabled: true,
+        order: targetIdx,
+        metadata: tab.metadata,
+      };
+      zoneItems.splice(targetIdx, 0, newItem);
+      
+      const orderMap = new Map<string, number>();
+      zoneItems.forEach((it, idx) => orderMap.set(it.id, idx));
+      updatedItems = updatedItems.map((it) => (orderMap.has(it.id) ? { ...it, order: orderMap.get(it.id)! } : it));
+      if (!updatedItems.some((it) => it.id === newItem.id)) {
+        updatedItems.push(newItem);
+      }
+    }
+
+    const nextActiveByZone = {
+      ...activeItemByZone,
+      [zone]: newItemId,
+    };
+
+    set({ items: updatedItems, activeItemByZone: nextActiveByZone });
+    saveState({ ...get(), items: updatedItems, activeItemByZone: nextActiveByZone });
+  },
+
+  undockItem: (itemId) => {
+    const { items, activeItemByZone } = get();
+    const target = items.find((it) => it.id === itemId);
+    if (!target) return;
+
+    let updatedItems: DockItem[];
+    const isDocItem =
+      target.type === 'document' ||
+      !!target.documentId ||
+      target.id.startsWith('doc:') ||
+      target.id.startsWith('tab-');
+
+    if (isDocItem) {
+      // User documents are removed completely
+      updatedItems = items.filter((it) => it.id !== itemId);
+    } else {
+      // Extensions are disabled rather than completely deleted
+      updatedItems = items.map((it) => (it.id === itemId ? { ...it, enabled: false } : it));
+    }
+
+    const nextActiveByZone = { ...activeItemByZone };
+    if (activeItemByZone[target.zone] === itemId) {
+      const remainingZoneItems = updatedItems.filter((it) => it.zone === target.zone && it.enabled);
+      nextActiveByZone[target.zone] = remainingZoneItems.length > 0 ? remainingZoneItems[0].id : null;
+    }
+
+    set({ items: updatedItems, activeItemByZone: nextActiveByZone });
+    saveState({ ...get(), items: updatedItems, activeItemByZone: nextActiveByZone });
+  },
+
+  toggleItemEnabled: (itemId, enabled) => {
+    const { items, activeItemByZone } = get();
+    const target = items.find((it) => it.id === itemId);
+    if (!target) return;
+
+    const isDocItem =
+      target.type === 'document' ||
+      !!target.documentId ||
+      target.id.startsWith('doc:') ||
+      target.id.startsWith('tab-');
+
+    if (isDocItem && (enabled === false || (enabled === undefined && target.enabled))) {
+      get().undockItem(itemId);
+      return;
+    }
+
+    const nextEnabled = enabled !== undefined ? enabled : !target.enabled;
+    const updatedItems = items.map((it) => (it.id === itemId ? { ...it, enabled: nextEnabled } : it));
+
+    const nextActiveByZone = { ...activeItemByZone };
+    if (!nextEnabled && activeItemByZone[target.zone] === itemId) {
+      const remaining = updatedItems.filter((it) => it.zone === target.zone && it.enabled);
+      nextActiveByZone[target.zone] = remaining.length > 0 ? remaining[0].id : null;
+    } else if (nextEnabled && !activeItemByZone[target.zone]) {
+      nextActiveByZone[target.zone] = itemId;
+    }
+
+    set({ items: updatedItems, activeItemByZone: nextActiveByZone });
+    saveState({ ...get(), items: updatedItems, activeItemByZone: nextActiveByZone });
+  },
+
+
+  moveItemToZone: (itemId, targetZone, insertIndex) => {
+    const { items, activeItemByZone } = get();
+    const target = items.find((it) => it.id === itemId);
+    if (!target) return;
+
+    const oldZone = target.zone;
+    if (oldZone === targetZone) {
+      if (typeof insertIndex === 'number') {
+        const zoneItems = items.filter((it) => it.zone === targetZone).sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
+        const curIdx = zoneItems.findIndex((it) => it.id === itemId);
+        if (curIdx !== -1 && curIdx !== insertIndex) {
+          get().reorderItemsInZone(targetZone, curIdx, insertIndex);
+        }
+      }
+      return;
+    }
+
+    let updatedItems = [...items];
+    const targetZoneItems = updatedItems
+      .filter((it) => it.zone === targetZone && it.id !== itemId)
+      .sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
+    
+    const targetIdx = typeof insertIndex === 'number' ? Math.max(0, Math.min(targetZoneItems.length, insertIndex)) : targetZoneItems.length;
+    
+    const movedItem: DockItem = {
+      ...target,
+      zone: targetZone,
+      enabled: true,
+      order: targetIdx,
+    };
+    targetZoneItems.splice(targetIdx, 0, movedItem);
+
+    const orderMap = new Map<string, number>();
+    targetZoneItems.forEach((it, idx) => orderMap.set(it.id, idx));
+
+    updatedItems = updatedItems.map((it) => {
+      if (it.id === itemId) return movedItem;
+      if (orderMap.has(it.id)) return { ...it, order: orderMap.get(it.id)! };
+      return it;
+    });
+
+    const nextActiveByZone = {
+      ...activeItemByZone,
+      [targetZone]: itemId,
+    };
+
+    if (activeItemByZone[oldZone] === itemId) {
+      const remainingOld = updatedItems.filter((it) => it.zone === oldZone && it.enabled && it.id !== itemId);
+      nextActiveByZone[oldZone] = remainingOld.length > 0 ? remainingOld[0].id : null;
+    }
+
+    set({ items: updatedItems, activeItemByZone: nextActiveByZone });
+    saveState({ ...get(), items: updatedItems, activeItemByZone: nextActiveByZone });
+  },
+
+  setActiveItemInZone: (zone, itemId) => {
+    const { activeItemByZone } = get();
+    const nextActive = {
+      ...activeItemByZone,
+      [zone]: itemId,
+    };
+    set({ activeItemByZone: nextActive });
+    saveState({ ...get(), activeItemByZone: nextActive });
+  },
+
+  reorderItemInZone: (zone, itemId, targetSlotIndex) => {
+    const { items } = get();
+    const visibleZoneItems = items
+      .filter((it) => it.zone === zone && it.enabled)
+      .sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
+
+    const fromIdx = visibleZoneItems.findIndex((it) => it.id === itemId);
+    if (fromIdx === -1) return;
+
+    const [moved] = visibleZoneItems.splice(fromIdx, 1);
+    const insertIdx = fromIdx < targetSlotIndex ? targetSlotIndex - 1 : targetSlotIndex;
+    const clampedInsertIdx = Math.max(0, Math.min(visibleZoneItems.length, insertIdx));
+    visibleZoneItems.splice(clampedInsertIdx, 0, moved);
+
+    // Reassign clean sequential 0, 1, 2... orders
+    const orderMap = new Map<string, number>();
+    visibleZoneItems.forEach((it, idx) => orderMap.set(it.id, idx));
+
+    const updatedItems = items.map((it) => {
+      if (it.zone === zone && orderMap.has(it.id)) {
+        return { ...it, order: orderMap.get(it.id)! };
+      }
+      return it;
+    });
+
+    set({ items: updatedItems });
+    saveState({ ...get(), items: updatedItems });
+  },
+
+  reorderItemsInZone: (zone, fromIndex, toIndex) => {
+    const { items } = get();
+    const visibleZoneItems = items
+      .filter((it) => it.zone === zone && it.enabled)
+      .sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
+    
+    if (fromIndex < 0 || fromIndex >= visibleZoneItems.length) return;
+    const item = visibleZoneItems[fromIndex];
+    if (!item) return;
+
+    get().reorderItemInZone(zone, item.id, toIndex > fromIndex ? toIndex + 1 : toIndex);
+  },
+
+
+
+  setSplitRatio: (side, ratio) => {
+    const clamped = Math.max(0.15, Math.min(0.85, ratio));
+    if (side === 'left') {
+      set({ splitRatioLeft: clamped });
+      saveState({ ...get(), splitRatioLeft: clamped });
+    } else {
+      set({ splitRatioRight: clamped });
+      saveState({ ...get(), splitRatioRight: clamped });
+    }
+  },
+
+  syncExtensionTabs: (tabs) => {
+    const { items, activeItemByZone } = get();
+    let changed = false;
+    const updatedItems = [...items];
+    const nextActiveByZone = { ...activeItemByZone };
+
+    tabs.forEach((tab) => {
+      const existing = updatedItems.find((it) => it.id === tab.id || it.extensionId === tab.id);
+      const defaultZone: DockZone = tab.side === 'left' ? 'left-top' : 'right-top';
+
+      if (!existing) {
+        changed = true;
+        updatedItems.push({
+          id: tab.id,
+          type: 'extension',
+          title: tab.title,
+          viewType: tab.id,
+          zone: defaultZone,
+          enabled: true,
+          order: tab.order ?? 50,
+          extensionId: tab.id,
+        });
+
+        if (!nextActiveByZone[defaultZone]) {
+          nextActiveByZone[defaultZone] = tab.id;
+        }
+      } else if (!existing.title && tab.title) {
+        existing.title = tab.title;
+        changed = true;
+      }
+    });
+
+
+    if (changed) {
+      set({ items: updatedItems, activeItemByZone: nextActiveByZone });
+      saveState({ ...get(), items: updatedItems, activeItemByZone: nextActiveByZone });
+    }
+  },
+}));

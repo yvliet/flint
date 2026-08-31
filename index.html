@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en" class="dark w-full h-full overflow-hidden">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: file: http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:* tauri: https://tauri.localhost;" />
+    <title>Flint</title>
+    <script defer src="./sql-wasm.js"></script>
+  </head>
+  <body class="bg-[#181818] text-[#dcddde] select-none overflow-hidden antialiased font-sans w-full h-full">
+    <div id="root" class="w-full h-full overflow-hidden"></div>
+    <script>
+      (function () {
+        function isPinchable(e) {
+          var el = e.target;
+          if (el && el.nodeType === 3) el = el.parentElement;
+          if (!el || el === document || el === document.documentElement || el === document.body) {
+            var cx = typeof e.clientX === 'number' ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : null);
+            var cy = typeof e.clientY === 'number' ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : null);
+            if (typeof cx === 'number' && typeof cy === 'number') {
+              try {
+                el = document.elementFromPoint(cx, cy);
+              } catch (err) {}
+            }
+          }
+          return Boolean(el && el.closest && el.closest('[data-pinchable="true"]'));
+        }
+
+        function onWheel(e) {
+          if (e.ctrlKey || e.metaKey) {
+            if (!isPinchable(e)) {
+              e.preventDefault();
+            }
+          }
+        }
+
+        function onTouch(e) {
+          if (e.touches && e.touches.length > 1) {
+            if (!isPinchable(e)) {
+              e.preventDefault();
+            }
+          }
+        }
+
+        function onGesture(e) {
+          if (!isPinchable(e)) {
+            e.preventDefault();
+          }
+        }
+
+        function onContextMenu(e) {
+          e.preventDefault();
+        }
+
+        var opts = { passive: false, capture: true };
+        window.addEventListener('wheel', onWheel, opts);
+        document.addEventListener('wheel', onWheel, opts);
+        window.addEventListener('touchstart', onTouch, opts);
+        document.addEventListener('touchstart', onTouch, opts);
+        window.addEventListener('touchmove', onTouch, opts);
+        document.addEventListener('touchmove', onTouch, opts);
+        window.addEventListener('gesturestart', onGesture, opts);
+        document.addEventListener('gesturestart', onGesture, opts);
+        window.addEventListener('gesturechange', onGesture, opts);
+        document.addEventListener('gesturechange', onGesture, opts);
+        window.addEventListener('contextmenu', onContextMenu, false);
+        document.addEventListener('contextmenu', onContextMenu, false);
+      })();
+    </script>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>

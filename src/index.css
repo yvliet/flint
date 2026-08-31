@@ -1,0 +1,1968 @@
+@import 'katex/dist/katex.min.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+
+  /* Theme surface tokens (defaults to Flint Dark) */
+  --flint-bg-app: #141414;
+  --flint-bg-topbar: #0d0d0d;
+  --flint-bg-topbar-gradient: #0d0d0d;
+  --flint-bg-ribbon: #111111;
+  --flint-bg-sidebar: #151515;
+  --flint-bg-sidebar-gradient: #151515;
+  --flint-bg-sidebar-hover: #1f1f1f;
+  --flint-bg-sidebar-active: #272727;
+  --flint-bg-main: #1c1c1c;
+  --flint-bg-main-gradient: #1c1c1c;
+  --flint-bg-card: #222222;
+  --flint-bg-card-hover: #2a2a2a;
+  --flint-bg-popover: #232323;
+  --flint-bg-input: #181818;
+  --flint-bg-input-focus: #222222;
+  --flint-bg-tab-active: #1c1c1c;
+  --flint-bg-tab-hover: #232323;
+  --flint-bg-tab-inactive: transparent;
+  --flint-tab-corner-fill: #1c1c1c;
+  --flint-tab-corner-hover-fill: #232323;
+  --flint-bg-statusbar: #1f1f1f;
+
+  /* Border tokens */
+  --flint-border-subtle: #202020;
+  --flint-border-base: #292929;
+  --flint-border-strong: #383838;
+
+  /* Text tokens */
+  --flint-text-primary: #ffffff;
+  --flint-text-secondary: #dcddde;
+  --flint-text-muted: #888888;
+  --flint-text-faint: #555555;
+
+  /* Accent tokens */
+  --flint-accent: #ea580c;
+  --flint-accent-hover: #c2410c;
+  --flint-accent-active: #9a3412;
+  --flint-accent-subtle: rgba(234, 88, 12, 0.15);
+  --flint-accent-gradient: linear-gradient(135deg, #ea580c 0%, #f97316 100%);
+
+  /* Selection & Code */
+  --flint-selection-bg: #4a4e57;
+  --flint-selection-text: #ffffff;
+  --flint-code-bg: #242424;
+  --flint-code-text: #e5e7eb;
+
+  /* Shadows & Elevation */
+  --flint-shadow-1: 0 1px 3px 0 rgba(0, 0, 0, 0.25);
+  --flint-shadow-2: 0 4px 16px 0 rgba(0, 0, 0, 0.4);
+  --flint-shadow-3: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
+
+  /* Native System Font Stacks */
+  --font-interface-fallback: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-text-fallback: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --font-monospace-fallback: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* Active Font Stacks */
+  --font-interface: var(--font-interface-fallback);
+  --font-text: var(--font-text-fallback);
+  --font-monospace: var(--font-monospace-fallback);
+  --editor-font-size: 16px;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: pan-x pan-y;
+}
+
+/* Spatial pinchable views (Graph View and Canvas) handle custom multi-touch & pointer gestures */
+[data-pinchable="true"],
+.flint-pinchable,
+.flint-graph-view,
+.flint-canvas-view {
+  touch-action: none !important;
+}
+
+/* Document layouts and editor surfaces: locked against touch zooming */
+.flint-doc-wrapper,
+[data-doc-view="true"],
+.editor-canvas,
+.ProseMirror,
+.tiptap-reading-view {
+  touch-action: pan-y !important;
+  -webkit-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--flint-bg-main);
+  color: var(--flint-text-secondary);
+  font-family: var(--font-interface);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+}
+
+input,
+button,
+textarea,
+select,
+optgroup {
+  font-family: inherit;
+}
+
+/* ==========================================================================
+   Comprehensive Semantic Utility Redirects (Guarantees 100% Theme Reactivity)
+   TODO: Retained because arbitrary hex utility classes (e.g., bg-[#1e1e1e]) 
+   are still referenced across JSX components. Refactor JSX to semantic theme 
+   tokens before removing these overrides.
+   ========================================================================== */
+
+/* Top bar surfaces */
+.bg-\[\#0f0f0f\],
+.bg-\[\#0d0d0d\],
+[data-top-bar="true"] {
+  background: var(--flint-bg-topbar-gradient, var(--flint-bg-topbar)) !important;
+}
+
+/* Sidebars & Ribbon */
+.bg-\[\#141414\],
+.bg-\[\#151515\],
+[data-sidebar="true"] {
+  background: var(--flint-bg-sidebar-gradient, var(--flint-bg-sidebar)) !important;
+}
+
+[data-ribbon="true"] {
+  background: var(--flint-bg-ribbon) !important;
+}
+
+/* Main workspace & canvas */
+.bg-\[\#181818\],
+.bg-\[\#1c1c1c\],
+[data-main="true"] {
+  background: var(--flint-bg-main-gradient, var(--flint-bg-main)) !important;
+}
+
+/* Cards, Modals, Panels */
+.bg-\[\#1e1e1e\],
+.bg-\[\#202020\],
+.bg-\[\#222222\],
+.bg-\[\#232323\],
+[data-card="true"] {
+  background-color: var(--flint-bg-card) !important;
+}
+
+/* Hover & Active Surfaces */
+.bg-\[\#242424\],
+.bg-\[\#252525\],
+.bg-\[\#262626\],
+.bg-\[\#282828\],
+.bg-\[\#2a2a2a\] {
+  background-color: var(--flint-bg-card-hover) !important;
+}
+
+/* Inputs & Form Controls */
+.bg-\[\#161616\],
+.bg-\[\#1a1a1a\],
+input:not([type="checkbox"]):not([type="radio"]):not(.bg-transparent),
+select,
+textarea {
+  background-color: var(--flint-bg-input) !important;
+  color: var(--flint-text-primary) !important;
+  border-color: var(--flint-border-base) !important;
+}
+
+.bg-transparent,
+input.bg-transparent,
+textarea.bg-transparent {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+/* Text Colors */
+.text-\[\#dcddde\],
+.text-\[\#d4d4d4\],
+.text-\[\#c5c6c8\],
+.text-\[\#cdd6f4\],
+.text-\[\#e0e0e0\] {
+  color: var(--flint-text-secondary) !important;
+}
+
+.text-\[\#888\],
+.text-\[\#888888\],
+.text-\[\#777\],
+.text-\[\#777777\],
+.text-\[\#666\],
+.text-\[\#666666\],
+.text-\[\#999\],
+.text-\[\#999999\] {
+  color: var(--flint-text-muted) !important;
+}
+
+.text-\[\#555\],
+.text-\[\#555555\],
+.text-\[\#4e4e4e\],
+.text-\[\#444\],
+.text-\[\#444444\] {
+  color: var(--flint-text-faint) !important;
+}
+
+/* Borders & Dividers */
+.border-\[\#202020\],
+.border-\[\#222\],
+.border-\[\#232323\],
+.border-\[\#242424\],
+.border-\[\#262626\],
+.border-\[\#282828\],
+.border-\[\#2a2a2a\],
+.border-\[\#2c2c2c\],
+.border-\[\#313244\],
+.border-\[\#333\],
+.border-\[\#333333\],
+.border-\[\#383838\],
+.border-\[\#3b4252\] {
+  border-color: var(--flint-border-base) !important;
+}
+
+.divide-\[\#202020\] > :not([hidden]) ~ :not([hidden]),
+.divide-\[\#222\] > :not([hidden]) ~ :not([hidden]),
+.divide-\[\#242424\] > :not([hidden]) ~ :not([hidden]),
+.divide-\[\#262626\] > :not([hidden]) ~ :not([hidden]),
+.divide-\[\#282828\] > :not([hidden]) ~ :not([hidden]),
+.divide-\[\#2a2a2a\] > :not([hidden]) ~ :not([hidden]),
+.divide-\[\#333\] > :not([hidden]) ~ :not([hidden]),
+.divide-\[\#383838\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--flint-border-subtle) !important;
+}
+
+/* ==========================================================================
+   Light Mode Comprehensive Theme Adjustments & State Overrides
+   Pure neutral palette, high-contrast typography, and zero warm tints.
+   ========================================================================== */
+
+.theme-light {
+  color-scheme: light;
+}
+
+/* Light mode selection */
+.theme-light ::selection,
+.theme-light input::selection,
+.theme-light textarea::selection,
+.theme-light .ProseMirror ::selection {
+  background-color: var(--flint-selection-bg, #bae6fd) !important;
+  color: var(--flint-selection-text, #09090b) !important;
+}
+
+/* Light text colors */
+.theme-light .text-white,
+.theme-light .text-\[\#ffffff\],
+.theme-light .text-\[\#f8fafc\],
+.theme-light .text-\[\#f5f5f5\],
+.theme-light .text-\[\#f3f4f6\],
+.theme-light .text-\[\#e5e7eb\],
+.theme-light .text-\[\#eceff4\],
+.theme-light .text-\[\#fdf6e3\],
+.theme-light .text-\[\#fdf4ff\],
+.theme-light .text-\[\#f5f3ff\],
+.theme-light .text-\[\#fff7ed\],
+.theme-light .text-\[\#f0fdfa\],
+.theme-light .text-\[\#ecfdf5\],
+.theme-light .text-\[\#cdd6f4\],
+.theme-light .text-\[\#c0caf5\],
+.theme-light .text-\[\#e0def4\] {
+  color: var(--flint-text-primary) !important;
+}
+
+/* Light placeholders */
+.theme-light ::placeholder,
+.theme-light input::placeholder,
+.theme-light textarea::placeholder,
+.theme-light .placeholder\:text-\[\#484848\]::placeholder,
+.theme-light .placeholder\:text-\[\#555\]::placeholder,
+.theme-light .placeholder-\[\#555\]::placeholder {
+  color: var(--flint-text-muted) !important;
+  opacity: 0.8 !important;
+}
+
+/* Light hover & active state redirects for arbitrary utility classes */
+.theme-light .hover\:bg-\[\#161616\]:hover,
+.theme-light .hover\:bg-\[\#1a1a1a\]:hover,
+.theme-light .hover\:bg-\[\#1c1c1c\]:hover,
+.theme-light .hover\:bg-\[\#1e1e1e\]:hover,
+.theme-light .hover\:bg-\[\#202020\]:hover,
+.theme-light .hover\:bg-\[\#222222\]:hover,
+.theme-light .hover\:bg-\[\#242424\]:hover,
+.theme-light .hover\:bg-\[\#252525\]:hover,
+.theme-light .hover\:bg-\[\#262626\]:hover,
+.theme-light .hover\:bg-\[\#282828\]:hover,
+.theme-light .hover\:bg-\[\#2a2a2a\]:hover,
+.theme-light .hover\:bg-\[\#2c2c2c\]:hover,
+.theme-light .hover\:bg-\[\#323232\]:hover,
+.theme-light .hover\:bg-\[\#333333\]:hover,
+.theme-light .hover\:bg-\[\#383838\]:hover,
+.theme-light .hover\:bg-\[\#404040\]:hover,
+.theme-light .hover\:bg-\[\#484848\]:hover {
+  background-color: var(--flint-bg-card-hover) !important;
+}
+
+.theme-light .active\:bg-\[\#1e1e1e\]:active,
+.theme-light .active\:bg-\[\#202020\]:active,
+.theme-light .active\:bg-\[\#222222\]:active,
+.theme-light .active\:bg-\[\#242424\]:active,
+.theme-light .active\:bg-\[\#262626\]:active,
+.theme-light .active\:bg-\[\#282828\]:active,
+.theme-light .active\:bg-\[\#2a2a2a\]:active {
+  background-color: var(--flint-bg-sidebar-active) !important;
+}
+
+.theme-light .hover\:text-white:hover,
+.theme-light .hover\:text-\[\#ffffff\]:hover,
+.theme-light .hover\:text-\[\#dcddde\]:hover,
+.theme-light .hover\:text-\[\#e0e0e0\]:hover,
+.theme-light .hover\:text-\[\#ccc\]:hover,
+.theme-light .hover\:text-\[\#c5c6c8\]:hover,
+.theme-light .hover\:text-\[\#d4d4d4\]:hover,
+.theme-light .hover\:text-\[\#f3f4f6\]:hover,
+.theme-light .hover\:text-\[\#e5e7eb\]:hover,
+.theme-light .group:hover .group-hover\:text-white,
+.theme-light .group:hover .group-hover\:text-\[\#ffffff\],
+.theme-light .group:hover .group-hover\:text-\[\#dcddde\],
+.theme-light .group:hover .group-hover\:text-\[\#e0e0e0\],
+.theme-light .group:hover .group-hover\:text-\[\#ccc\],
+.theme-light .group:hover .group-hover\:text-\[\#c5c6c8\],
+.theme-light .group:hover .group-hover\:text-\[\#aaaaaa\],
+.theme-light .group:hover .group-hover\:text-\[\#d4d4d4\] {
+  color: var(--flint-text-primary) !important;
+}
+
+.theme-light .hover\:border-\[\#383838\]:hover,
+.theme-light .hover\:border-\[\#404040\]:hover,
+.theme-light .hover\:border-\[\#444\]:hover,
+.theme-light .hover\:border-\[\#444444\]:hover,
+.theme-light .hover\:border-\[\#484848\]:hover,
+.theme-light .hover\:border-\[\#4c4c4c\]:hover,
+.theme-light .hover\:border-\[\#555\]:hover,
+.theme-light .hover\:border-\[\#555555\]:hover {
+  border-color: var(--flint-border-strong) !important;
+}
+
+/* Light mode subtle in-between dividers */
+.theme-light .divide-\[\#202020\] > :not([hidden]) ~ :not([hidden]),
+.theme-light .divide-\[\#222\] > :not([hidden]) ~ :not([hidden]),
+.theme-light .divide-\[\#242424\] > :not([hidden]) ~ :not([hidden]),
+.theme-light .divide-\[\#262626\] > :not([hidden]) ~ :not([hidden]),
+.theme-light .divide-\[\#282828\] > :not([hidden]) ~ :not([hidden]),
+.theme-light .divide-\[\#2a2a2a\] > :not([hidden]) ~ :not([hidden]),
+.theme-light .divide-\[\#333\] > :not([hidden]) ~ :not([hidden]),
+.theme-light .divide-\[\#383838\] > :not([hidden]) ~ :not([hidden]),
+.theme-light .divide-zinc-800 > :not([hidden]) ~ :not([hidden]),
+.theme-light .divide-neutral-800 > :not([hidden]) ~ :not([hidden]),
+.theme-light .divide-gray-800 > :not([hidden]) ~ :not([hidden]),
+.theme-light .divide-y > :not([hidden]) ~ :not([hidden]),
+.theme-light .divide-x > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--flint-border-subtle, #f0f0f2) !important;
+}
+
+/* Light Mode Softened Optical Elevations (Cards, Popovers, Dropdowns, Context Menus, Modals) */
+.theme-light [data-card="true"],
+.theme-light .bg-\[\#202020\],
+.theme-light .bg-\[\#1e1e1e\],
+.theme-light .bg-\[\#222222\] {
+  background-color: var(--flint-bg-card) !important;
+  border-color: var(--flint-border-base, #e4e4e7) !important;
+  box-shadow: var(--flint-shadow-1, 0 1px 2px 0 rgba(0, 0, 0, 0.03)) !important;
+}
+
+.theme-light [role="menu"],
+.theme-light [data-radix-popper-content-wrapper] > div,
+.theme-light .custom-select-menu,
+.theme-light .shadow-md,
+.theme-light .shadow,
+.theme-light .shadow-\[0_8px_24px_rgba\(0\,0\,0\,0\.6\)\,0_2px_6px_rgba\(0\,0\,0\,0\.3\)\],
+.theme-light .shadow-\[0_8px_24px_rgba\(0\,0\,0\,0\.4\)\] {
+  box-shadow: var(--flint-shadow-2, 0 4px 12px -2px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.03)) !important;
+}
+
+.theme-light .shadow-2xl,
+.theme-light .shadow-xl,
+.theme-light .shadow-lg,
+.theme-light [role="dialog"],
+.theme-light .fixed.z-50 > div {
+  box-shadow: var(--flint-shadow-3, 0 10px 24px -4px rgba(0, 0, 0, 0.08), 0 4px 8px -2px rgba(0, 0, 0, 0.04)) !important;
+}
+
+/* Editor typography in light theme */
+.theme-light .ProseMirror {
+  color: var(--flint-text-secondary);
+}
+
+.theme-light .ProseMirror strong,
+.theme-light .ProseMirror b,
+.theme-light .md-bold {
+  color: var(--flint-text-primary) !important;
+  font-weight: 600;
+}
+
+.theme-light .ProseMirror em,
+.theme-light .ProseMirror i,
+.theme-light .md-italic {
+  color: var(--flint-text-secondary) !important;
+}
+
+.theme-light .ProseMirror h1,
+.theme-light .ProseMirror h2,
+.theme-light .ProseMirror h3,
+.theme-light .ProseMirror h4,
+.theme-light .ProseMirror h5,
+.theme-light .ProseMirror h6 {
+  color: var(--flint-text-primary) !important;
+  font-weight: 700;
+}
+
+.theme-light .ProseMirror blockquote {
+  border-left-color: var(--flint-border-strong) !important;
+  color: var(--flint-text-secondary) !important;
+}
+
+.theme-light .ProseMirror code,
+.theme-light .md-code {
+  background-color: var(--flint-code-bg, var(--flint-bg-input)) !important;
+  color: var(--flint-code-text, var(--flint-text-primary)) !important;
+  border: 1px solid var(--flint-border-subtle);
+}
+
+.theme-light .ProseMirror pre {
+  background-color: var(--flint-bg-input) !important;
+  border: 1px solid var(--flint-border-subtle) !important;
+}
+
+.theme-light .ProseMirror pre code {
+  background: transparent !important;
+  border: none !important;
+  color: var(--flint-text-primary) !important;
+}
+
+.theme-light .md-wikilink,
+.theme-light .ProseMirror .md-wikilink,
+.theme-light .tiptap-reading-view .md-wikilink {
+  color: var(--flint-accent) !important;
+  text-decoration-color: var(--flint-border-strong) !important;
+}
+
+.theme-light .md-wikilink:hover,
+.theme-light .ProseMirror .md-wikilink:hover,
+.theme-light .tiptap-reading-view .md-wikilink:hover {
+  color: var(--flint-accent-hover) !important;
+  text-decoration-color: var(--flint-accent-hover) !important;
+}
+
+/* Global Selection Style (Obsidian visible neutral selection) */
+::selection {
+  background-color: #4a4e57;
+  color: #ffffff;
+}
+
+input::selection,
+textarea::selection {
+  background-color: #505560;
+  color: #ffffff;
+}
+
+/* Custom Obsidian Scrollbar (Lightweight Overlay & Zero-Shift) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+  transition: background-color 0.15s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.custom-scrollbar {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.theme-light ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.theme-light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.custom-scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* Electron Window Drag Regions */
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* TipTap Editor Prose Custom Styles */
+.ProseMirror {
+  outline: none;
+  font-family: var(--font-text);
+  font-size: var(--editor-font-size, 16px);
+  line-height: 1.75;
+  color: var(--flint-text-primary);
+}
+
+code,
+pre,
+kbd,
+.font-mono {
+  font-family: var(--font-monospace) !important;
+}
+
+.ProseMirror ::selection {
+  background-color: var(--flint-selection-bg, #4a4e57);
+  color: var(--flint-selection-text, #ffffff);
+}
+
+/* Flint Tab Indent: Hide selection background on tabs / leading indentation */
+.flint-tab-indent::selection,
+.ProseMirror .flint-tab-indent::selection,
+.theme-dark .ProseMirror .flint-tab-indent::selection,
+.theme-light .ProseMirror .flint-tab-indent::selection {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+.ProseMirror p {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.ProseMirror strong,
+.ProseMirror b {
+  font-weight: 700;
+  color: var(--flint-text-primary);
+}
+
+.ProseMirror em,
+.ProseMirror i {
+  font-style: italic;
+  color: var(--flint-text-secondary);
+}
+
+.ProseMirror h1 {
+  font-size: calc(var(--editor-font-size, 16px) * 1.85);
+  font-weight: 700;
+  color: var(--flint-text-primary);
+  margin-top: 1.75em;
+  margin-bottom: 0.75em;
+  line-height: 1.3;
+}
+
+.ProseMirror h2 {
+  font-size: calc(var(--editor-font-size, 16px) * 1.45);
+  font-weight: 600;
+  color: var(--flint-text-primary);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  line-height: 1.35;
+}
+
+.ProseMirror h3 {
+  font-size: calc(var(--editor-font-size, 16px) * 1.2);
+  font-weight: 600;
+  color: var(--flint-text-secondary);
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+  line-height: 1.4;
+}
+
+.ProseMirror h4 {
+  font-size: calc(var(--editor-font-size, 16px) * 1.08);
+  font-weight: 600;
+  color: var(--flint-text-secondary);
+  margin-top: 1em;
+  margin-bottom: 0.4em;
+  line-height: 1.45;
+}
+
+.ProseMirror h5 {
+  font-size: calc(var(--editor-font-size, 16px) * 0.95);
+  font-weight: 600;
+  color: var(--flint-text-muted);
+  margin-top: 0.9em;
+  margin-bottom: 0.35em;
+}
+
+.ProseMirror h6 {
+  font-size: calc(var(--editor-font-size, 16px) * 0.88);
+  font-weight: 600;
+  color: var(--flint-text-muted);
+  margin-top: 0.8em;
+  margin-bottom: 0.3em;
+}
+
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid var(--flint-border-strong);
+  padding-left: 1rem;
+  margin-left: 0;
+  margin-right: 0;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  color: var(--flint-text-muted);
+  font-style: italic;
+}
+
+.ProseMirror code {
+  background-color: var(--flint-code-bg, var(--flint-bg-card));
+  color: var(--flint-code-text, var(--flint-text-primary));
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  font-family: var(--font-monospace) !important;
+  border: 1px solid var(--flint-border-subtle);
+}
+
+.ProseMirror pre {
+  background-color: var(--flint-bg-input);
+  border: 1px solid var(--flint-border-subtle);
+  border-radius: 0.5rem;
+  padding: 0.85rem 1rem;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  overflow-x: auto;
+  font-family: var(--font-monospace) !important;
+}
+
+.ProseMirror pre code {
+  background: transparent;
+  padding: 0;
+  border: none;
+  color: var(--flint-text-primary);
+  font-size: 0.85rem;
+  font-family: var(--font-monospace) !important;
+}
+
+.ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--flint-border-subtle);
+  margin: 1.75rem 0;
+}
+
+/* Task lists */
+ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+}
+
+ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+ul[data-type="taskList"] li > label {
+  user-select: none;
+  margin-top: 0.25rem;
+}
+
+ul[data-type="taskList"] li > label input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: #e5e7eb;
+  width: 14px;
+  height: 14px;
+}
+
+ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+
+ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: #666666;
+}
+
+/* Placeholder */
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #555555;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Obsidian Live Preview: Heading and Blockquote indicators */
+.ProseMirror h1.is-active-h1::before {
+  content: '# ';
+  color: #777777;
+  font-weight: normal;
+  user-select: none;
+  pointer-events: none;
+}
+
+.ProseMirror h2.is-active-h2::before {
+  content: '## ';
+  color: #777777;
+  font-weight: normal;
+  user-select: none;
+  pointer-events: none;
+}
+
+.ProseMirror h3.is-active-h3::before {
+  content: '### ';
+  color: #777777;
+  font-weight: normal;
+  user-select: none;
+  pointer-events: none;
+}
+
+.ProseMirror h4.is-active-h4::before {
+  content: '#### ';
+  color: #777777;
+  font-weight: normal;
+  user-select: none;
+  pointer-events: none;
+}
+
+.ProseMirror h5.is-active-h5::before {
+  content: '##### ';
+  color: #777777;
+  font-weight: normal;
+  user-select: none;
+  pointer-events: none;
+}
+
+.ProseMirror h6.is-active-h6::before {
+  content: '###### ';
+  color: #777777;
+  font-weight: normal;
+  user-select: none;
+  pointer-events: none;
+}
+
+.theme-light .ProseMirror h1.is-active-h1::before,
+.theme-light .ProseMirror h2.is-active-h2::before,
+.theme-light .ProseMirror h3.is-active-h3::before,
+.theme-light .ProseMirror h4.is-active-h4::before,
+.theme-light .ProseMirror h5.is-active-h5::before,
+.theme-light .ProseMirror h6.is-active-h6::before {
+  color: #94a3b8 !important;
+}
+
+.ProseMirror blockquote.is-active-blockquote::before {
+  content: '> ';
+  color: #777777;
+  font-weight: normal;
+  user-select: none;
+  pointer-events: none;
+}
+
+.theme-light .ProseMirror blockquote.is-active-blockquote::before {
+  color: #94a3b8 !important;
+}
+
+/* Obsidian Live Preview: Syntax Markers (Dimmed on active line, Hidden on inactive lines) */
+.md-syntax-dimmed {
+  color: #777777;
+  font-weight: 400;
+  font-style: normal;
+  text-decoration: none;
+}
+
+.theme-light .md-syntax-dimmed {
+  color: #94a3b8 !important;
+}
+
+.md-syntax-hidden {
+  display: inline;
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+  letter-spacing: -1px;
+}
+
+/* Plain Text List Prefix Dimming (Numbers & Dashes/Bullets - Obsidian style) */
+.flint-numbered-prefix,
+.flint-list-prefix {
+  color: #777777;
+  font-weight: 400;
+  font-style: normal;
+  text-decoration: none;
+  transition: color 0.12s ease;
+}
+
+.theme-light .flint-numbered-prefix,
+.theme-light .flint-list-prefix {
+  color: #94a3b8 !important;
+}
+
+.tiptap-reading-view .flint-numbered-prefix,
+.tiptap-reading-view .flint-list-prefix {
+  color: #777777 !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  letter-spacing: normal !important;
+  display: inline !important;
+}
+
+.theme-light .tiptap-reading-view .flint-numbered-prefix,
+.theme-light .tiptap-reading-view .flint-list-prefix {
+  color: #94a3b8 !important;
+}
+
+.ProseMirror ol > li::marker,
+.ProseMirror ul > li::marker {
+  color: #777777;
+}
+
+.theme-light .ProseMirror ol > li::marker,
+.theme-light .ProseMirror ul > li::marker {
+  color: #94a3b8 !important;
+}
+
+/* Accent Recolor for Numbers & Lists (when accent list markers toggle is on) */
+.flint-accent-lists .flint-numbered-prefix,
+.flint-accent-lists .flint-list-prefix,
+.flint-accent-lists .tiptap-reading-view .flint-numbered-prefix,
+.flint-accent-lists .tiptap-reading-view .flint-list-prefix,
+.flint-accent-lists .ProseMirror ol > li::marker,
+.flint-accent-lists .ProseMirror ul > li::marker {
+  color: var(--flint-accent) !important;
+  opacity: 0.82 !important;
+}
+
+.theme-dark .flint-accent-lists .flint-numbered-prefix,
+.theme-dark .flint-accent-lists .flint-list-prefix,
+.theme-dark .flint-accent-lists .tiptap-reading-view .flint-numbered-prefix,
+.theme-dark .flint-accent-lists .tiptap-reading-view .flint-list-prefix,
+.theme-dark .flint-accent-lists .ProseMirror ol > li::marker,
+.theme-dark .flint-accent-lists .ProseMirror ul > li::marker {
+  color: color-mix(in srgb, var(--flint-accent) 80%, #d4d4d8 20%) !important;
+  opacity: 0.85 !important;
+}
+
+.theme-light .flint-accent-lists .flint-numbered-prefix,
+.theme-light .flint-accent-lists .flint-list-prefix,
+.theme-light .flint-accent-lists .tiptap-reading-view .flint-numbered-prefix,
+.theme-light .flint-accent-lists .tiptap-reading-view .flint-list-prefix,
+.theme-light .flint-accent-lists .ProseMirror ol > li::marker,
+.theme-light .flint-accent-lists .ProseMirror ul > li::marker {
+  color: color-mix(in srgb, var(--flint-accent) 85%, #09090b 15%) !important;
+  opacity: 0.82 !important;
+}
+
+/* Obsidian Reading View: Default Cursor & Strict Markdown Syntax Concealment */
+.tiptap-reading-view,
+.tiptap-reading-view .ProseMirror {
+  font-family: var(--font-text);
+  cursor: default !important;
+}
+
+.tiptap-reading-view a,
+.tiptap-reading-view button,
+.tiptap-reading-view [role="button"],
+.tiptap-reading-view input[type="checkbox"],
+.tiptap-reading-view .md-wikilink,
+.tiptap-reading-view .flint-fold-btn {
+  cursor: pointer !important;
+}
+
+.tiptap-reading-view .is-active-h1::before,
+.tiptap-reading-view .is-active-h2::before,
+.tiptap-reading-view .is-active-h3::before,
+.tiptap-reading-view .is-active-h4::before,
+.tiptap-reading-view .is-active-h5::before,
+.tiptap-reading-view .is-active-h6::before,
+.tiptap-reading-view .is-active-blockquote::before {
+  content: '' !important;
+  display: none !important;
+}
+
+.tiptap-reading-view .md-syntax-dimmed {
+  display: inline !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  color: transparent !important;
+  letter-spacing: -1px !important;
+}
+
+/* Obsidian Live Preview: Formatted Markdown Styles */
+.md-bold {
+  font-weight: 700;
+  color: var(--flint-text-primary);
+}
+
+.md-italic {
+  font-style: italic;
+  color: var(--flint-text-secondary);
+}
+
+.md-code {
+  font-family: var(--font-monospace) !important;
+  background-color: var(--flint-code-bg, var(--flint-bg-card));
+  color: var(--flint-code-text, var(--flint-text-primary));
+  padding: 0.12rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.88em;
+  border: 1px solid var(--flint-border-subtle);
+}
+
+.md-strike {
+  text-decoration: line-through;
+  color: var(--flint-text-muted);
+}
+
+.md-highlight {
+  background-color: rgba(251, 191, 36, 0.22);
+  color: #d97706;
+  padding: 0.1rem 0.25rem;
+  border-radius: 0.2rem;
+}
+
+.theme-dark .md-highlight {
+  color: #fbbf24;
+  background-color: rgba(251, 191, 36, 0.22);
+}
+
+.md-wikilink,
+.ProseMirror .md-wikilink,
+.tiptap-reading-view .md-wikilink {
+  color: var(--flint-accent);
+  text-decoration: underline;
+  text-decoration-color: var(--flint-border-strong);
+  text-underline-offset: 3px;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  transition: text-decoration-color 0.12s ease;
+}
+
+.md-wikilink:hover,
+.ProseMirror .md-wikilink:hover,
+.tiptap-reading-view .md-wikilink:hover {
+  color: var(--flint-accent-hover, var(--flint-accent));
+  text-decoration-color: var(--flint-accent-hover, var(--flint-accent));
+}
+
+.ProseMirror a {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+/* Obsidian Heading Target Focus Highlight (Zero text nudge / Zero layout shift) */
+.ProseMirror h1.flint-heading-target,
+.ProseMirror h2.flint-heading-target,
+.ProseMirror h3.flint-heading-target,
+.ProseMirror h4.flint-heading-target,
+.ProseMirror h5.flint-heading-target,
+.ProseMirror h6.flint-heading-target,
+.flint-heading-target {
+  width: fit-content !important;
+  max-width: 100% !important;
+  display: inline-block !important;
+  background-color: #82691b !important;
+  color: #ffffff !important;
+  padding: 0 4px !important;
+  margin-left: -4px !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+
+/* Heading & Indent Folding Styles */
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3,
+.ProseMirror h4,
+.ProseMirror h5,
+.ProseMirror h6,
+.ProseMirror p,
+.ProseMirror li {
+  position: relative;
+}
+
+.flint-fold-widget {
+  position: relative;
+  display: inline-block;
+  width: 0;
+  height: 0;
+  line-height: 0;
+  vertical-align: baseline;
+  user-select: none;
+  pointer-events: none;
+}
+
+.flint-fold-btn {
+  position: absolute;
+  top: -0.38em;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 3px;
+  color: #777777;
+  opacity: 0;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none;
+  padding: 0;
+  outline: none !important;
+  box-shadow: none !important;
+  user-select: none;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent !important;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  z-index: 5;
+}
+
+.flint-fold-btn.flint-fold-h1 {
+  right: 6px;
+  width: 24px;
+  height: 24px;
+}
+
+.flint-fold-btn.flint-fold-h2 {
+  right: 6px;
+  width: 22px;
+  height: 22px;
+}
+
+.flint-fold-btn.flint-fold-h3 {
+  right: 5px;
+  width: 20px;
+  height: 20px;
+}
+
+.flint-fold-btn.flint-fold-h4,
+.flint-fold-btn.flint-fold-h5,
+.flint-fold-btn.flint-fold-h6 {
+  right: 4px;
+  width: 18px;
+  height: 18px;
+}
+
+/* Offset fold chevrons when live preview markdown prefix indicators (#) are active */
+.ProseMirror h1.is-active-h1 .flint-fold-btn.flint-fold-h1 {
+  right: calc(6px + 1.25ch);
+}
+
+.ProseMirror h2.is-active-h2 .flint-fold-btn.flint-fold-h2 {
+  right: calc(6px + 2.25ch);
+}
+
+.ProseMirror h3.is-active-h3 .flint-fold-btn.flint-fold-h3 {
+  right: calc(5px + 3.25ch);
+}
+
+.ProseMirror h4.is-active-h4 .flint-fold-btn.flint-fold-h4 {
+  right: calc(4px + 4.25ch);
+}
+
+.ProseMirror h5.is-active-h5 .flint-fold-btn.flint-fold-h5 {
+  right: calc(4px + 5.25ch);
+}
+
+.ProseMirror h6.is-active-h6 .flint-fold-btn.flint-fold-h6 {
+  right: calc(4px + 6.25ch);
+}
+
+.flint-fold-btn.flint-fold-list-btn {
+  right: 4px;
+  width: 18px;
+  height: 18px;
+}
+
+.ProseMirror h1:hover .flint-fold-btn,
+.ProseMirror h2:hover .flint-fold-btn,
+.ProseMirror h3:hover .flint-fold-btn,
+.ProseMirror h4:hover .flint-fold-btn,
+.ProseMirror h5:hover .flint-fold-btn,
+.ProseMirror h6:hover .flint-fold-btn,
+.ProseMirror p:hover .flint-fold-btn,
+.ProseMirror li:hover .flint-fold-btn,
+.flint-fold-btn.is-folded {
+  opacity: 1;
+}
+
+.flint-fold-btn:hover,
+.flint-fold-btn:active,
+.flint-fold-btn:focus,
+.flint-fold-btn:focus-visible {
+  color: #dcddde;
+  background: transparent !important;
+  background-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.flint-fold-placeholder-wrap {
+  display: inline;
+  vertical-align: baseline;
+}
+
+.flint-fold-placeholder,
+.flint-fold-ellipsis {
+  display: inline;
+  margin-left: 0.35em;
+  font-size: inherit;
+  font-weight: normal;
+  font-family: inherit;
+  letter-spacing: 0.08em;
+  color: var(--flint-text-muted, #777777);
+  opacity: 0.8;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  vertical-align: baseline;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.flint-fold-placeholder:hover,
+.flint-fold-ellipsis:hover {
+  color: var(--flint-text-primary, #dcddde);
+  opacity: 1;
+  background: transparent !important;
+}
+
+.flint-fold-tail {
+  display: inline;
+  font-size: inherit;
+  line-height: inherit;
+  user-select: text;
+  outline: none;
+  cursor: text;
+}
+
+.flint-folded-node {
+  display: none !important;
+}
+
+/* When a line is folded, clip the indent guide so it doesn't bleed past the ellipsis */
+.ProseMirror p:has(.flint-fold-placeholder-wrap) .flint-tab-guide::before,
+.ProseMirror h1:has(.flint-fold-placeholder-wrap) .flint-tab-guide::before,
+.ProseMirror h2:has(.flint-fold-placeholder-wrap) .flint-tab-guide::before,
+.ProseMirror h3:has(.flint-fold-placeholder-wrap) .flint-tab-guide::before,
+.ProseMirror li:has(.flint-fold-placeholder-wrap) .flint-tab-guide::before {
+  display: none !important;
+}
+
+/* Line numbers */
+.flint-line-numbers .ProseMirror {
+  counter-reset: flint-lines;
+  padding-left: 2.25rem;
+  position: relative;
+}
+
+.flint-line-numbers .ProseMirror > p,
+.flint-line-numbers .ProseMirror > h1,
+.flint-line-numbers .ProseMirror > h2,
+.flint-line-numbers .ProseMirror > h3,
+.flint-line-numbers .ProseMirror > blockquote,
+.flint-line-numbers .ProseMirror > pre,
+.flint-line-numbers .ProseMirror > ul,
+.flint-line-numbers .ProseMirror > ol {
+  position: relative;
+}
+
+.flint-line-numbers .ProseMirror > p::before,
+.flint-line-numbers .ProseMirror > h1::before,
+.flint-line-numbers .ProseMirror > h2::before,
+.flint-line-numbers .ProseMirror > h3::before,
+.flint-line-numbers .ProseMirror > blockquote::before,
+.flint-line-numbers .ProseMirror > pre::before,
+.flint-line-numbers .ProseMirror > ul::before,
+.flint-line-numbers .ProseMirror > ol::before {
+  counter-increment: flint-lines;
+  content: counter(flint-lines);
+  position: absolute;
+  left: -2.25rem;
+  top: 0;
+  width: 1.5rem;
+  text-align: right;
+  color: #555555;
+  font-size: 11px;
+  font-family: var(--font-monospace);
+  user-select: none;
+  pointer-events: none;
+  line-height: inherit;
+}
+
+/* ==========================================================================
+   Indentation Guides (Plain-Text Lists & Nested Blocks)
+   - Centers vertical guide line (left: 0.44em) directly beneath parent numbers and bullets.
+   - Highlights the active downward branch when the caret is on a parent list/numbered item.
+   - Recalors to theme accent when the 'Accent number & list markers' setting is enabled.
+   ========================================================================== */
+.flint-indent-guides .flint-tab-guide,
+.flint-tab-guide {
+  position: relative;
+  display: inline;
+}
+
+.flint-indent-guides .flint-tab-guide::before,
+.tiptap-reading-view.flint-indent-guides .flint-tab-guide::before {
+  content: '';
+  position: absolute;
+  top: -0.55rem;
+  bottom: -0.55rem;
+  left: 0.44em; /* Optically centered through number stems and bullet glyphs */
+  width: 0;
+  border-left: 1px solid #333333;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.theme-light .flint-indent-guides .flint-tab-guide::before,
+.theme-light .tiptap-reading-view.flint-indent-guides .flint-tab-guide::before {
+  border-left-color: #e4e4e7;
+}
+
+/* Active Indent Guide (Neutral mode: clean high-contrast highlight when caret is on parent item) */
+.flint-indent-guides .flint-tab-guide.flint-tab-guide-active::before,
+.flint-indent-guides .flint-tab-guide-active::before,
+.tiptap-reading-view.flint-indent-guides .flint-tab-guide.flint-tab-guide-active::before,
+.tiptap-reading-view.flint-indent-guides .flint-tab-guide-active::before {
+  border-left: 1.5px solid #a1a1aa !important;
+  opacity: 1 !important;
+}
+
+.theme-light .flint-indent-guides .flint-tab-guide.flint-tab-guide-active::before,
+.theme-light .flint-indent-guides .flint-tab-guide-active::before,
+.theme-light .tiptap-reading-view.flint-indent-guides .flint-tab-guide.flint-tab-guide-active::before,
+.theme-light .tiptap-reading-view.flint-indent-guides .flint-tab-guide-active::before {
+  border-left: 1.5px solid #475569 !important;
+  opacity: 1 !important;
+}
+
+/* Active Indent Guide (Accent mode: glowing theme accent highlight matching dimmed accent list markers) */
+.flint-accent-lists .flint-tab-guide.flint-tab-guide-active::before,
+.flint-accent-lists .flint-indent-guides .flint-tab-guide.flint-tab-guide-active::before,
+.flint-accent-lists .flint-tab-guide-active::before,
+.flint-accent-lists.tiptap-reading-view .flint-tab-guide.flint-tab-guide-active::before,
+.flint-accent-lists.tiptap-reading-view .flint-tab-guide-active::before,
+.theme-dark .flint-accent-lists .flint-tab-guide.flint-tab-guide-active::before,
+.theme-dark .flint-accent-lists .flint-tab-guide-active::before,
+.theme-light .flint-accent-lists .flint-tab-guide.flint-tab-guide-active::before,
+.theme-light .flint-accent-lists .flint-tab-guide-active::before {
+  border-left: 1.5px solid var(--flint-accent) !important;
+  opacity: 0.95 !important;
+}
+
+/* Terminal Bottom End Smooth Fade Out (Masked gradient fade for the final line of an indent level) */
+.flint-indent-guides .flint-tab-guide-end::before,
+.tiptap-reading-view.flint-indent-guides .flint-tab-guide-end::before {
+  bottom: -0.75rem;
+  mask-image: linear-gradient(to bottom, #000 0%, #000 40%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 40%, transparent 100%);
+}
+
+.flint-indent-guides ul ul,
+.flint-indent-guides ol ol,
+.flint-indent-guides ul ol,
+.flint-indent-guides ol ul,
+.flint-indent-guides ul[data-type="taskList"] ul[data-type="taskList"] {
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  margin-left: 0.25rem;
+  padding-left: 1.25rem;
+}
+
+/* Obsidian Button & Form Controls */
+.obsidian-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background-color: var(--flint-bg-card-hover, #2a2a2a);
+  border: 1px solid var(--flint-border-base, #383838);
+  border-radius: 5px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+  color: var(--flint-text-secondary, #dcddde);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+  outline: none;
+}
+
+.obsidian-btn:hover {
+  background-color: var(--flint-bg-sidebar-active, #333333);
+  border-color: var(--flint-border-strong, #484848);
+  color: var(--flint-text-primary, #ffffff);
+}
+
+.obsidian-btn:active {
+  background-color: var(--flint-bg-input, #242424);
+  box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+.obsidian-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.theme-light .obsidian-btn {
+  background-color: #f4f4f5 !important;
+  border-color: #d4d4d8 !important;
+  color: #09090b !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+.theme-light .obsidian-btn:hover {
+  background-color: #e4e4e7 !important;
+  border-color: #a1a1aa !important;
+  color: #09090b !important;
+}
+
+.theme-light .obsidian-btn:active {
+  background-color: #d4d4d8 !important;
+  box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.08) !important;
+}
+
+.obsidian-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background-color: var(--flint-accent, #ea580c);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 14px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  outline: none;
+}
+
+.obsidian-btn-primary:hover {
+  background-color: #c2410c;
+}
+
+.obsidian-btn-primary:active {
+  background-color: #9a3412;
+  box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+.obsidian-btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.obsidian-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background-color: #e11d48;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 14px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+  outline: none;
+}
+
+.obsidian-btn-danger:hover {
+  background-color: #f43f5e;
+}
+
+.obsidian-btn-danger:active {
+  background-color: #be123c;
+  box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Light Theme Overrides for Controls */
+.theme-light .obsidian-btn {
+  background-color: var(--flint-bg-card);
+  border-color: var(--flint-border-base);
+  color: var(--flint-text-secondary);
+  box-shadow: var(--flint-shadow-1);
+}
+
+.theme-light .obsidian-btn:hover {
+  background-color: var(--flint-bg-card-hover);
+  border-color: var(--flint-border-strong);
+  color: var(--flint-text-primary);
+}
+
+.theme-light .obsidian-btn:active {
+  background-color: var(--flint-bg-sidebar-active);
+  box-shadow: inset 0 1px 2px 0 oklch(0.20 0.03 42 / 0.1);
+}
+
+.theme-light button[role="switch"] {
+  box-shadow: var(--flint-shadow-1);
+}
+
+.theme-light button[role="switch"][aria-checked="false"] {
+  background-color: var(--flint-border-base) !important;
+  border-color: var(--flint-border-subtle) !important;
+}
+
+.theme-light button[role="switch"][aria-checked="false"]:hover {
+  background-color: var(--flint-border-strong) !important;
+}
+
+/* In-Editor Find & Replace Match Highlights */
+.flint-find-match {
+  background-color: rgba(234, 179, 8, 0.35);
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.flint-find-active {
+  background-color: #ea580c !important;
+  color: #ffffff !important;
+  border-radius: 2px;
+  outline: 1px solid #fb923c;
+  box-shadow: 0 0 6px rgba(234, 88, 12, 0.6);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Flint Tag Boxes & Filter Pills Design Language */
+.flint-tag,
+.md-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background-color: #252525;
+  border: 1px solid #383838;
+  border-radius: 5px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
+  color: #b0b0b0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+  user-select: none;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+.flint-tag:hover,
+.md-tag:hover {
+  background-color: #2d2d2d;
+  border-color: #484848;
+  color: #ffffff;
+}
+
+.flint-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease, transform 0.08s ease;
+  outline: none;
+}
+
+.flint-filter-pill-inactive {
+  background-color: #242424;
+  border: 1px solid #383838;
+  color: #999999;
+}
+
+.flint-filter-pill-inactive:hover {
+  background-color: #2e2e2e;
+  border-color: #484848;
+  color: #ffffff;
+}
+
+.flint-filter-pill-inactive:active {
+  background-color: #1e1e1e;
+  box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+.flint-filter-pill-active {
+  background-color: var(--flint-accent, #ea580c);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.flint-filter-pill-active:hover {
+  background-color: var(--flint-accent-hover, #c2410c);
+}
+
+.flint-filter-pill-active:active {
+  background-color: var(--flint-accent-active, #9a3412);
+  box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+.theme-light .flint-tag,
+.theme-light .md-tag {
+  background-color: var(--flint-bg-card);
+  border-color: var(--flint-border-base);
+  color: var(--flint-text-secondary);
+  box-shadow: var(--flint-shadow-1);
+}
+
+.theme-light .flint-tag:hover,
+.theme-light .md-tag:hover {
+  background-color: var(--flint-bg-card-hover);
+  border-color: var(--flint-border-strong);
+  color: var(--flint-text-primary);
+}
+
+.theme-light .flint-filter-pill-inactive {
+  background-color: var(--flint-bg-card);
+  border-color: var(--flint-border-base);
+  color: var(--flint-text-muted);
+  box-shadow: var(--flint-shadow-1);
+}
+
+.theme-light .flint-filter-pill-inactive:hover {
+  background-color: var(--flint-bg-card-hover);
+  border-color: var(--flint-border-strong);
+  color: var(--flint-text-primary);
+}
+
+/* ==========================================================================
+   Flint Table Block & ProseMirror Tables Styling
+   ========================================================================== */
+
+.ProseMirror .tableWrapper {
+  overflow-x: auto;
+  margin: 1.25rem 0;
+  border-radius: 0px;
+  border: 1px solid var(--flint-border-base, #292929);
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.ProseMirror table,
+.flint-table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0;
+  border-radius: 0px;
+  overflow: hidden;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.ProseMirror table td,
+.ProseMirror table th,
+.flint-table td,
+.flint-table th {
+  min-width: 80px;
+  padding: 8px 12px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+  border: 1px solid var(--flint-border-base, #292929);
+  background-color: rgba(34, 34, 34, 0.25);
+  color: var(--flint-text-secondary, #dcddde);
+  font-weight: normal;
+  text-align: left;
+}
+
+.ProseMirror table .selectedCell,
+.flint-table .selectedCell {
+  background-color: var(--flint-accent-subtle, rgba(234, 88, 12, 0.15)) !important;
+  border-color: var(--flint-accent, #ea580c) !important;
+}
+
+.ProseMirror table .column-resize-handle,
+.flint-table .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: var(--flint-accent, #ea580c);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 20;
+}
+
+.ProseMirror table th:hover .column-resize-handle,
+.ProseMirror table td:hover .column-resize-handle,
+.flint-table th:hover .column-resize-handle,
+.flint-table td:hover .column-resize-handle {
+  opacity: 0.7;
+}
+
+
+/* Light Theme Overrides for Tables */
+.theme-light .ProseMirror .tableWrapper {
+  border-color: #e4e4e7;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.theme-light .ProseMirror table td,
+.theme-light .ProseMirror table th,
+.theme-light .flint-table td,
+.theme-light .flint-table th {
+  border-color: #e4e4e7;
+  background-color: #ffffff;
+  color: #27272a;
+}
+
+
+/* ==========================================================================
+   MathJax / KaTeX & MathLive WYSIWYG Styling
+   ========================================================================== */
+
+/* Rendered KaTeX Math (Live Preview) */
+.md-math-render {
+  cursor: pointer;
+  display: inline;
+  vertical-align: baseline;
+  user-select: text;
+  color: var(--flint-text-primary, #ffffff);
+  transition: opacity 0.1s ease;
+}
+
+.md-math-render:hover {
+  opacity: 0.88;
+}
+
+.md-math-render.md-math-block {
+  display: block;
+  text-align: center;
+  margin: 0.75rem 0;
+  overflow-x: auto;
+}
+
+/* Inline Math Formatting - Clean, seamless mathematical typography when editing */
+.md-math-inline {
+  display: inline;
+  vertical-align: baseline;
+  color: var(--flint-text-primary, #ffffff);
+  background: transparent;
+  border: none;
+}
+
+.theme-light .md-math-inline {
+  color: var(--flint-text-primary, #0f172a);
+}
+
+/* Block Math Display - Clean, centered equation */
+.md-math-block {
+  display: block;
+  text-align: center;
+  margin: 0.75rem 0;
+  padding: 0.35rem 0;
+  color: var(--flint-text-primary, #ffffff);
+  background: transparent;
+  border: none;
+  overflow-x: auto;
+}
+
+.theme-light .md-math-block {
+  color: var(--flint-text-primary, #0f172a);
+}
+
+.md-math-error {
+  color: #f87171;
+  font-family: var(--font-monospace);
+  font-size: 0.88em;
+  background: transparent;
+  padding: 0 0.2rem;
+  border-bottom: 1px dashed #ef4444;
+}
+
+/* Interactive Live MathField (when focused/editing) */
+math-field,
+math-field.flint-live-math-field,
+.wce-math-field {
+  display: inline-block;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  font-size: 1.05em !important;
+  line-height: inherit !important;
+  color: var(--flint-text-primary, #ffffff) !important;
+  padding: 0 1px !important;
+  margin: 0 !important;
+  vertical-align: baseline;
+  box-shadow: none !important;
+  caret-color: var(--flint-text-primary, #ffffff) !important;
+  --caret-color: var(--flint-text-primary, #ffffff);
+  --selection-background-color: transparent !important;
+  --selection-color: inherit !important;
+  --primary: var(--flint-text-primary, #ffffff);
+  --contains-highlight-background-color: transparent !important;
+  --contains-highlight-border-color: transparent !important;
+  --highlight-color: transparent !important;
+  --smart-fence-opacity: 0 !important;
+}
+
+math-field:focus,
+math-field:focus-within,
+math-field.flint-live-math-field:focus,
+math-field.flint-live-math-field:focus-within,
+.wce-math-field:focus,
+.wce-math-field:focus-within {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+math-field::part(virtual-keyboard-toggle),
+math-field::part(menu-toggle),
+math-field::part(action-list),
+math-field::part(mode-bar),
+math-field::part(button),
+.flint-live-math-field::part(virtual-keyboard-toggle),
+.flint-live-math-field::part(menu-toggle),
+.flint-live-math-field::part(action-list),
+.flint-live-math-field::part(mode-bar),
+.flint-live-math-field::part(button),
+.wce-math-field::part(virtual-keyboard-toggle),
+.wce-math-field::part(menu-toggle) {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+math-field::part(container) {
+  padding: 0 !important;
+  font-size: 1.05em !important;
+  line-height: inherit !important;
+  background: transparent !important;
+}
+
+math-field::part(content) {
+  font-size: 1.05em !important;
+  line-height: inherit !important;
+  background: transparent !important;
+}
+
+.theme-light math-field,
+.theme-light math-field.flint-live-math-field,
+.theme-light .wce-math-field {
+  color: var(--flint-text-primary, #0f172a) !important;
+  caret-color: var(--flint-text-primary, #0f172a) !important;
+  --caret-color: var(--flint-text-primary, #0f172a);
+  --selection-background-color: transparent !important;
+  --selection-color: inherit !important;
+  --primary: var(--flint-text-primary, #0f172a);
+  --contains-highlight-background-color: transparent !important;
+  --contains-highlight-border-color: transparent !important;
+  --highlight-color: transparent !important;
+}
+
+.md-math-block math-field,
+.md-math-block math-field.flint-live-math-field {
+  display: block;
+  text-align: center;
+  margin: 0.5rem auto;
+}
+
+/* Atomic Math Chips (Ported from user's architecture) */
+.wce-chip {
+  cursor: pointer;
+  border-radius: 0.25rem;
+  transition: background-color 0.12s ease;
+  user-select: text;
+}
+
+.wce-chip:focus,
+.wce-chip.ProseMirror-selectednode,
+.flint-math-node.ProseMirror-selectednode,
+.ProseMirror-selectednode {
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.wce-math {
+  display: inline-block;
+  vertical-align: baseline;
+  padding: 0 0.05em;
+  margin: 0 0.04em;
+  background: transparent !important;
+  border: none;
+}
+
+.wce-math-render {
+  display: inline-block;
+  vertical-align: baseline;
+  background: transparent !important;
+}
+
+.wce-math-render .katex {
+  font-size: 1.05em !important;
+}
+
+.flint-math-delim {
+  opacity: 0.35;
+  font-family: inherit;
+  font-size: 0.9em;
+  user-select: none;
+  padding: 0 1px;
+}
+
+.wce-chip.wce-editing {
+  cursor: default;
+  background: transparent !important;
+  border: none;
+}
+
+.wce-chip.wce-editing .flint-math-delim {
+  opacity: 0.6;
+}
+
+/* MathLive Virtual Keyboard Theming to match Flint */
+:root {
+  --keyboard-background: #181818;
+  --keycap-background: #242424;
+  --keycap-background-hover: #303030;
+  --keycap-background-active: #3a3a3a;
+  --keycap-border: #333333;
+  --keycap-text: #dcddde;
+  --keycap-text-active: #ffffff;
+  --keyboard-toolbar-text: #888888;
+  --keyboard-toolbar-text-active: #ea580c;
+  --keyboard-accent-color: #ea580c;
+}
+
+.math-virtual-keyboard {
+  z-index: 99999 !important;
+  background-color: #181818 !important;
+  border-top: 1px solid #2e2e2e !important;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+.flint-math-key {
+  background-color: #242424 !important;
+  color: #e5e7eb !important;
+  border: 1px solid #333333 !important;
+  border-radius: 6px !important;
+  font-size: 1.1rem !important;
+  transition: all 0.1s ease !important;
+}
+
+.flint-math-key:hover {
+  background-color: #333333 !important;
+  border-color: #444444 !important;
+}
+
+.flint-math-key:active {
+  background-color: #404040 !important;
+  transform: scale(0.96);
+}
+
+/* Native Math Keyboard Styling */
+.flint-key {
+  height: 2.45rem;
+  min-width: 2.2rem;
+  padding: 0 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #222222;
+  color: #e5e7eb;
+  border: 1px solid #303030;
+  border-radius: 0.375rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.1s ease;
+}
+
+.flint-key:hover {
+  background-color: #2e2e2e;
+  border-color: #404040;
+  color: #ffffff;
+}
+
+.flint-key:active {
+  background-color: #383838;
+  transform: scale(0.96);
+}
+
+

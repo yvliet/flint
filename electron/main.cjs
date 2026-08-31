@@ -1,0 +1,782 @@
+process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const path = require('path');
+const http = require('http');
+const fs = require('fs');
+
+app.commandLine.appendSwitch('enable-features', 'OverlayScrollbar');
+app.commandLine.appendSwitch('disable-pinch');
+if (process.platform === 'win32') app.setAppUserModelId('com.flint.desktop');
+
+let mainWindow;
+
+// User Config for Vault Directory Management
+const configPath = path.join(app.getPath('userData'), 'flint-config.json');
+
+function loadConfig() {
+  try {
+    if (fs.existsSync(configPath)) {
+      return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    }
+  } catch (e) {
+    console.error('Error reading config:', e);
+  }
+  const defaultVault = path.join(app.getPath('documents'), 'Flint Vault');
+  return {
+    currentVaultPath: defaultVault,
+    recentVaults: [{ path: defaultVault, name: 'Flint Vault', lastOpened: Date.now() }],
+  };
+}
+
+function saveConfig(config) {
+  try {
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error saving config:', e);
+  }
+}
+
+let appConfig = loadConfig();
+
+function getVaultDbPath(vaultPath) {
+  const targetVault = vaultPath || appConfig.currentVaultPath || path.join(app.getPath('documents'), 'Flint Vault');
+  const flintDir = path.join(targetVault, '.flint');
+  if (!fs.existsSync(flintDir)) {
+    fs.mkdirSync(flintDir, { recursive: true });
+  }
+  return path.join(flintDir, 'flint.sqlite');
+}
+
+// Ensure current vault directory exists
+if (!fs.existsSync(appConfig.currentVaultPath)) {
+  try {
+    fs.mkdirSync(appConfig.currentVaultPath, { recursive: true });
+  } catch (e) {}
+}
+
+let vaultWatcher = null;
+let vaultWatcherTimeout = null;
+
+function setupVaultWatcher(vaultPath) {
+  if (vaultWatcher) {
+    try {
+      vaultWatcher.close();
+    } catch (e) {}
+    vaultWatcher = null;
+  }
+
+  if (!vaultPath || !fs.existsSync(vaultPath)) return;
+
+  try {
+    vaultWatcher = fs.watch(vaultPath, { recursive: true }, (eventType, filename) => {
+      if (!filename) return;
+      const normalized = filename.replace(/\\/g, '/');
+      // Ignore internal .flint directory, .git, and hidden dotfiles
+      if (normalized.startsWith('.flint') || normalized.startsWith('.') || normalized.includes('/.')) return;
+
+      if (vaultWatcherTimeout) clearTimeout(vaultWatcherTimeout);
+      vaultWatcherTimeout = setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+          mainWindow.webContents.send('vault-files-changed');
+        }
+      }, 500);
+    });
+  } catch (e) {
+    console.warn('[Flint Watcher] Could not setup fs.watch on vault:', e);
+  }
+}
+
+setupVaultWatcher(appConfig.currentVaultPath);
+
+function checkUrl(url) {
+  return new Promise((resolve) => {
+    const req = http.get(url, (res) => {
+      resolve(res.statusCode === 200 || res.statusCode === 304);
+    });
+    req.on('error', () => resolve(false));
+    req.setTimeout(500, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+async function loadApp(window) {
+  const devUrl = 'http://127.0.0.1:5173';
+  let retries = 30;
+
+  while (retries > 0) {
+    const isUp = await checkUrl(devUrl);
+    if (isUp) {
+      console.log('[Flint Electron] Connected to Vite dev server at', devUrl);
+      window.loadURL(devUrl);
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 200));
+    retries--;
+  }
+
+  // Fallback to built dist file
+  console.log('[Flint Electron] Loading production build fallback');
+  window.loadFile(path.join(__dirname, '../dist/index.html'));
+}
+
+let vaultWindow = null;
+let settingsWindow = null;
+
+function createSettingsWindow() {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.focus();
+    return;
+  }
+
+  const currentVaultName = path.basename(appConfig.currentVaultPath || '') || 'Flint Vault';
+
+  settingsWindow = new BrowserWindow({
+    width: 960,
+    height: 650,
+    minWidth: 800,
+    minHeight: 520,
+    frame: false,
+    backgroundColor: '#181818',
+    icon: path.join(__dirname, 'assets', process.platform === 'darwin' ? 'icon.icns' : 'icon.png'),
+    show: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      webSecurity: false,
+    },
+    title: `Settings﹕${currentVaultName}﹕Flint`,
+  });
+
+  attachWindowEvents(settingsWindow);
+
+  const devUrl = 'http://127.0.0.1:5173?window=settings';
+  checkUrl('http://127.0.0.1:5173').then((isUp) => {
+    if (isUp) {
+      settingsWindow.loadURL(devUrl);
+    } else {
+      settingsWindow.loadFile(path.join(__dirname, '../dist/index.html'), { query: { window: 'settings' } });
+    }
+  });
+
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
+  });
+}
+
+function createVaultWindow() {
+  if (vaultWindow && !vaultWindow.isDestroyed()) {
+    vaultWindow.focus();
+    return;
+  }
+
+  vaultWindow = new BrowserWindow({
+    width: 820,
+    height: 560,
+    minWidth: 720,
+    minHeight: 480,
+    frame: false,
+    backgroundColor: '#181818',
+    icon: path.join(__dirname, 'assets', process.platform === 'darwin' ? 'icon.icns' : 'icon.png'),
+    show: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      webSecurity: false,
+    },
+    title: 'Flint Vault Switcher',
+  });
+
+  attachWindowEvents(vaultWindow);
+
+  const devUrl = 'http://127.0.0.1:5173?window=vault-switcher';
+  checkUrl('http://127.0.0.1:5173').then((isUp) => {
+    if (isUp) {
+      vaultWindow.loadURL(devUrl);
+    } else {
+      vaultWindow.loadFile(path.join(__dirname, '../dist/index.html'), { query: { window: 'vault-switcher' } });
+    }
+  });
+
+  vaultWindow.on('closed', () => {
+    vaultWindow = null;
+  });
+}
+
+function attachWindowEvents(win) {
+  if (!win) return;
+  const sendMaximizedState = () => {
+    if (!win.isDestroyed() && win.webContents) {
+      win.webContents.send('window-maximized-change', win.isMaximized());
+    }
+  };
+  win.on('maximize', sendMaximizedState);
+  win.on('unmaximize', sendMaximizedState);
+  win.on('restore', sendMaximizedState);
+  win.on('resized', sendMaximizedState);
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 850,
+    minWidth: 900,
+    minHeight: 600,
+    frame: false, // Frameless Obsidian dark window
+    backgroundColor: '#181818',
+    icon: path.join(__dirname, 'assets', process.platform === 'darwin' ? 'icon.icns' : 'icon.png'),
+    show: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      webSecurity: false,
+    },
+    title: 'Flint',
+  });
+
+  attachWindowEvents(mainWindow);
+  mainWindow.maximize();
+
+  // Pipe renderer console messages to terminal
+  mainWindow.webContents.on('console-message', (event, level, message) => {
+    console.log('[Renderer]', message);
+  });
+
+  loadApp(mainWindow);
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+function registerIpc() {
+  // Window frame controls (sender window aware)
+  ipcMain.on('window-minimize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    if (win) win.minimize();
+  });
+
+  ipcMain.on('window-maximize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    if (win) {
+      if (win.isMaximized()) {
+        win.unmaximize();
+      } else {
+        win.maximize();
+      }
+    }
+  });
+
+  ipcMain.on('window-close', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    if (win) win.close();
+  });
+
+  ipcMain.on('window-set-title', (event, title) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    if (win && !win.isDestroyed() && typeof title === 'string') {
+      win.setTitle(title);
+    }
+  });
+
+  ipcMain.handle('is-window-maximized', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    return win ? win.isMaximized() : false;
+  });
+
+  ipcMain.on('is-window-maximized-sync', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    event.returnValue = win ? win.isMaximized() : false;
+  });
+
+  ipcMain.handle('open-vault-window', () => {
+    createVaultWindow();
+    return { success: true };
+  });
+
+  ipcMain.handle('close-vault-window', () => {
+    if (vaultWindow && !vaultWindow.isDestroyed()) {
+      vaultWindow.close();
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle('open-settings-window', () => {
+    createSettingsWindow();
+    return { success: true };
+  });
+
+  ipcMain.handle('close-settings-window', () => {
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.close();
+    }
+    return { success: true };
+  });
+
+  // Vault Management IPC Handlers
+  ipcMain.handle('get-current-vault', async () => {
+    const vaultPath = appConfig.currentVaultPath;
+    const vaultName = path.basename(vaultPath) || 'Flint Vault';
+    return { path: vaultPath, name: vaultName, recentVaults: appConfig.recentVaults || [] };
+  });
+
+  function notifyVaultChanged(vaultData) {
+    if (vaultData?.path) {
+      setupVaultWatcher(vaultData.path);
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('vault-changed', vaultData);
+      mainWindow.focus();
+    }
+    if (vaultWindow && !vaultWindow.isDestroyed()) {
+      vaultWindow.close();
+    }
+  }
+
+  ipcMain.handle('select-vault-folder', async () => {
+    const parentWin = vaultWindow && !vaultWindow.isDestroyed() ? vaultWindow : mainWindow;
+    if (!parentWin) return { canceled: true };
+    const result = await dialog.showOpenDialog(parentWin, {
+      title: 'Select Vault Folder',
+      properties: ['openDirectory', 'createDirectory'],
+      defaultPath: appConfig.currentVaultPath || app.getPath('documents'),
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { canceled: true };
+    }
+
+    const chosenPath = result.filePaths[0];
+    const chosenName = path.basename(chosenPath) || 'Vault';
+
+    appConfig.currentVaultPath = chosenPath;
+    const recents = (appConfig.recentVaults || []).filter((v) => v.path !== chosenPath);
+    recents.unshift({ path: chosenPath, name: chosenName, lastOpened: Date.now() });
+    appConfig.recentVaults = recents.slice(0, 10);
+    saveConfig(appConfig);
+
+    const data = { canceled: false, path: chosenPath, name: chosenName, recentVaults: appConfig.recentVaults };
+    notifyVaultChanged(data);
+    return data;
+  });
+
+  ipcMain.handle('set-current-vault', async (event, vaultPath) => {
+    if (!fs.existsSync(vaultPath)) {
+      try {
+        fs.mkdirSync(vaultPath, { recursive: true });
+      } catch (e) {}
+    }
+    const chosenName = path.basename(vaultPath) || 'Vault';
+    appConfig.currentVaultPath = vaultPath;
+    const recents = (appConfig.recentVaults || []).filter((v) => v.path !== vaultPath);
+    recents.unshift({ path: vaultPath, name: chosenName, lastOpened: Date.now() });
+    appConfig.recentVaults = recents.slice(0, 10);
+    saveConfig(appConfig);
+    const data = { success: true, path: vaultPath, name: chosenName, recentVaults: appConfig.recentVaults };
+    notifyVaultChanged(data);
+    return data;
+  });
+
+  ipcMain.handle('select-parent-folder', async () => {
+    const parentWin = vaultWindow && !vaultWindow.isDestroyed() ? vaultWindow : mainWindow;
+    if (!parentWin) return { canceled: true };
+    const result = await dialog.showOpenDialog(parentWin, {
+      title: 'Select Folder for New Vault',
+      properties: ['openDirectory', 'createDirectory'],
+      defaultPath: app.getPath('documents'),
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { canceled: true };
+    }
+    return { canceled: false, path: result.filePaths[0] };
+  });
+
+  ipcMain.handle('create-new-vault', async (event, { name, parentPath }) => {
+    try {
+      const cleanName = (name || 'New Vault').replace(/[/\\?%*:|"<>]/g, '_').trim();
+      const baseDir = parentPath || app.getPath('documents');
+      const newVaultPath = path.join(baseDir, cleanName);
+
+      if (!fs.existsSync(newVaultPath)) {
+        fs.mkdirSync(newVaultPath, { recursive: true });
+      }
+
+      appConfig.currentVaultPath = newVaultPath;
+      const recents = (appConfig.recentVaults || []).filter((v) => v.path !== newVaultPath);
+      recents.unshift({ path: newVaultPath, name: cleanName, lastOpened: Date.now() });
+      appConfig.recentVaults = recents.slice(0, 10);
+      saveConfig(appConfig);
+
+      const data = { success: true, path: newVaultPath, name: cleanName, recentVaults: appConfig.recentVaults };
+      notifyVaultChanged(data);
+      return data;
+    } catch (err) {
+      console.error('[Flint Vault] Error creating new vault:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('remove-recent-vault', async (event, targetPath) => {
+    try {
+      appConfig.recentVaults = (appConfig.recentVaults || []).filter((v) => v.path !== targetPath);
+      saveConfig(appConfig);
+      return { success: true, recentVaults: appConfig.recentVaults };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('open-vault-in-explorer', async (event, vaultPath) => {
+    const target = vaultPath || appConfig.currentVaultPath;
+    if (fs.existsSync(target)) {
+      shell.openPath(target);
+      return { success: true };
+    }
+    return { success: false, error: 'Folder does not exist' };
+  });
+
+  ipcMain.handle('save-database', async (event, uint8Array) => {
+    try {
+      const dbFile = getVaultDbPath(appConfig.currentVaultPath);
+      const buffer = Buffer.from(uint8Array);
+      fs.writeFileSync(dbFile, buffer);
+      return { success: true, path: dbFile };
+    } catch (err) {
+      console.error('[Flint DB] Error saving sqlite file to vault disk:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('load-database', async () => {
+    try {
+      const dbFile = getVaultDbPath(appConfig.currentVaultPath);
+      if (fs.existsSync(dbFile)) {
+        const buffer = fs.readFileSync(dbFile);
+        return buffer;
+      }
+      return null;
+    } catch (err) {
+      console.error('[Flint DB] Error loading sqlite file from disk:', err);
+      return null;
+    }
+  });
+
+  function scanVaultDirectory(dir, baseDir = dir) {
+    const items = [];
+    if (!fs.existsSync(dir)) return items;
+
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+        const fullPath = path.join(dir, entry.name);
+        const relPath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
+
+        if (entry.isDirectory()) {
+          items.push({
+            relativePath: relPath,
+            name: entry.name,
+            isFolder: true,
+            mtime: fs.statSync(fullPath).mtimeMs,
+          });
+          items.push(...scanVaultDirectory(fullPath, baseDir));
+        } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
+          const title = entry.name.replace(/\.md$/i, '');
+          const stat = fs.statSync(fullPath);
+          let content = '';
+          try {
+            content = fs.readFileSync(fullPath, 'utf8');
+          } catch (e) {}
+          items.push({
+            relativePath: relPath,
+            name: title,
+            isFolder: false,
+            mtime: stat.mtimeMs,
+            content: content,
+          });
+        }
+      }
+    } catch (e) {
+      console.error('[Flint Electron] Scan vault error:', e);
+    }
+    return items;
+  }
+
+  ipcMain.handle('scan-vault-files', async (event, customVaultPath) => {
+    try {
+      const targetVault = customVaultPath || appConfig.currentVaultPath || path.join(app.getPath('documents'), 'Flint Vault');
+      if (!fs.existsSync(targetVault)) {
+        fs.mkdirSync(targetVault, { recursive: true });
+      }
+      return scanVaultDirectory(targetVault, targetVault);
+    } catch (err) {
+      console.error('[Flint Vault] Error scanning vault files:', err);
+      return [];
+    }
+  });
+
+  ipcMain.handle('save-markdown-file', async (event, { filename, content, relativePath }) => {
+    try {
+      const targetVault = appConfig.currentVaultPath || path.join(app.getPath('documents'), 'Flint Vault');
+      if (!fs.existsSync(targetVault)) {
+        fs.mkdirSync(targetVault, { recursive: true });
+      }
+      let filePath;
+      if (relativePath) {
+        const cleanRel = relativePath.replace(/\\/g, '/');
+        const fileWithExt = cleanRel.toLowerCase().endsWith('.md') ? cleanRel : cleanRel + '.md';
+        filePath = path.join(targetVault, fileWithExt);
+        const parentDir = path.dirname(filePath);
+        if (!fs.existsSync(parentDir)) {
+          fs.mkdirSync(parentDir, { recursive: true });
+        }
+      } else {
+        const safeFilename = (filename || 'Untitled').replace(/[/\\?%*:|"<>]/g, '_') + '.md';
+        filePath = path.join(targetVault, safeFilename);
+      }
+      fs.writeFileSync(filePath, content, 'utf8');
+      return { success: true, path: filePath };
+    } catch (err) {
+      console.error('[Flint Vault] Error saving file:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('delete-markdown-file', async (event, filenameOrPath) => {
+    try {
+      const targetVault = appConfig.currentVaultPath || path.join(app.getPath('documents'), 'Flint Vault');
+      const cleanRel = (filenameOrPath || 'Untitled').replace(/\\/g, '/');
+      const fileWithExt = cleanRel.toLowerCase().endsWith('.md') ? cleanRel : cleanRel + '.md';
+      const filePath = path.join(targetVault, fileWithExt);
+      if (fs.existsSync(filePath)) {
+        if (fs.statSync(filePath).isDirectory()) {
+          fs.rmSync(filePath, { recursive: true, force: true });
+        } else {
+          fs.unlinkSync(filePath);
+        }
+      } else {
+        const directPath = path.join(targetVault, cleanRel);
+        if (fs.existsSync(directPath)) {
+          if (fs.statSync(directPath).isDirectory()) {
+            fs.rmSync(directPath, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(directPath);
+          }
+        }
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Trash Directory IPC Handlers
+  ipcMain.handle('open-trash-folder', async () => {
+    try {
+      const targetVault = appConfig.currentVaultPath || path.join(app.getPath('documents'), 'Flint Vault');
+      const trashDir = path.join(targetVault, '.trash');
+      if (!fs.existsSync(trashDir)) {
+        fs.mkdirSync(trashDir, { recursive: true });
+      }
+      shell.openPath(trashDir);
+      return { success: true, path: trashDir };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('save-trash-file', async (event, { filename, content, relativePath }) => {
+    try {
+      const targetVault = appConfig.currentVaultPath || path.join(app.getPath('documents'), 'Flint Vault');
+      const trashDir = path.join(targetVault, '.trash');
+      if (!fs.existsSync(trashDir)) {
+        fs.mkdirSync(trashDir, { recursive: true });
+      }
+      let filePath;
+      if (relativePath) {
+        const cleanRel = relativePath.replace(/\\/g, '/');
+        const fileWithExt = cleanRel.toLowerCase().endsWith('.md') ? cleanRel : cleanRel + '.md';
+        filePath = path.join(trashDir, fileWithExt);
+        const parentDir = path.dirname(filePath);
+        if (!fs.existsSync(parentDir)) {
+          fs.mkdirSync(parentDir, { recursive: true });
+        }
+      } else {
+        const safeFilename = (filename || 'Untitled').replace(/[/\\?%*:|"<>]/g, '_') + '.md';
+        filePath = path.join(trashDir, safeFilename);
+      }
+      fs.writeFileSync(filePath, content, 'utf8');
+      return { success: true, path: filePath };
+    } catch (err) {
+      console.error('[Flint Vault] Error saving trash file:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('delete-trash-file', async (event, filenameOrPath) => {
+    try {
+      const targetVault = appConfig.currentVaultPath || path.join(app.getPath('documents'), 'Flint Vault');
+      const trashDir = path.join(targetVault, '.trash');
+      const cleanRel = (filenameOrPath || 'Untitled').replace(/\\/g, '/');
+      const fileWithExt = cleanRel.toLowerCase().endsWith('.md') ? cleanRel : cleanRel + '.md';
+      const filePath = path.join(trashDir, fileWithExt);
+      if (fs.existsSync(filePath)) {
+        if (fs.statSync(filePath).isDirectory()) {
+          fs.rmSync(filePath, { recursive: true, force: true });
+        } else {
+          fs.unlinkSync(filePath);
+        }
+      } else {
+        const directPath = path.join(trashDir, cleanRel);
+        if (fs.existsSync(directPath)) {
+          if (fs.statSync(directPath).isDirectory()) {
+            fs.rmSync(directPath, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(directPath);
+          }
+        }
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('empty-trash-folder', async () => {
+    try {
+      const targetVault = appConfig.currentVaultPath || path.join(app.getPath('documents'), 'Flint Vault');
+      const trashDir = path.join(targetVault, '.trash');
+      if (fs.existsSync(trashDir)) {
+        fs.rmSync(trashDir, { recursive: true, force: true });
+        fs.mkdirSync(trashDir, { recursive: true });
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('rename-markdown-file', async (event, { oldFilename, newFilename, oldRelativePath, newRelativePath }) => {
+    try {
+      const targetVault = appConfig.currentVaultPath || path.join(app.getPath('documents'), 'Flint Vault');
+      let oldPath, newPath;
+
+      if (oldRelativePath && newRelativePath) {
+        const oldClean = oldRelativePath.replace(/\\/g, '/');
+        const newClean = newRelativePath.replace(/\\/g, '/');
+        oldPath = path.join(targetVault, oldClean.toLowerCase().endsWith('.md') ? oldClean : oldClean + '.md');
+        newPath = path.join(targetVault, newClean.toLowerCase().endsWith('.md') ? newClean : newClean + '.md');
+      } else {
+        const oldSafe = (oldFilename || 'Untitled').replace(/[/\\?%*:|"<>]/g, '_') + '.md';
+        const newSafe = (newFilename || 'Untitled').replace(/[/\\?%*:|"<>]/g, '_') + '.md';
+        oldPath = path.join(targetVault, oldSafe);
+        newPath = path.join(targetVault, newSafe);
+      }
+
+      const parentDir = path.dirname(newPath);
+      if (!fs.existsSync(parentDir)) {
+        fs.mkdirSync(parentDir, { recursive: true });
+      }
+
+      if (fs.existsSync(oldPath)) {
+        fs.renameSync(oldPath, newPath);
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Community Plugin IPC Handlers
+  ipcMain.handle('open-plugins-folder', async () => {
+    const targetVault = appConfig.currentVaultPath || path.join(app.getPath('documents'), 'Flint Vault');
+    const pluginsDir = path.join(targetVault, '.flint', 'plugins');
+    if (!fs.existsSync(pluginsDir)) {
+      fs.mkdirSync(pluginsDir, { recursive: true });
+    }
+    shell.openPath(pluginsDir);
+    return { success: true, path: pluginsDir };
+  });
+
+  ipcMain.handle('list-installed-plugins', async () => {
+    try {
+      const targetVault = appConfig.currentVaultPath || path.join(app.getPath('documents'), 'Flint Vault');
+      const pluginsDir = path.join(targetVault, '.flint', 'plugins');
+      if (!fs.existsSync(pluginsDir)) {
+        fs.mkdirSync(pluginsDir, { recursive: true });
+        return [];
+      }
+      const entries = fs.readdirSync(pluginsDir, { withFileTypes: true });
+      const plugins = [];
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const manifestPath = path.join(pluginsDir, entry.name, 'manifest.json');
+          if (fs.existsSync(manifestPath)) {
+            try {
+              const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+              plugins.push({
+                id: manifest.id || entry.name,
+                name: manifest.name || entry.name,
+                version: manifest.version || '1.0.0',
+                description: manifest.description || '',
+                author: manifest.author || '',
+                folder: entry.name,
+                isCore: false,
+              });
+            } catch (e) {
+              console.warn('[Flint Plugins] Failed to parse manifest in', entry.name, e);
+            }
+          }
+        }
+      }
+      return plugins;
+    } catch (err) {
+      console.error('[Flint Plugins] Error listing plugins:', err);
+      return [];
+    }
+  });
+
+  ipcMain.handle('read-plugin-bundle', async (event, pluginFolder) => {
+    try {
+      const targetVault = appConfig.currentVaultPath || path.join(app.getPath('documents'), 'Flint Vault');
+      const pluginDir = path.join(targetVault, '.flint', 'plugins', pluginFolder);
+      const mainJsPath = path.join(pluginDir, 'main.js');
+      const stylesCssPath = path.join(pluginDir, 'styles.css');
+
+      let jsCode = '';
+      let cssCode = '';
+      if (fs.existsSync(mainJsPath)) {
+        jsCode = fs.readFileSync(mainJsPath, 'utf8');
+      }
+      if (fs.existsSync(stylesCssPath)) {
+        cssCode = fs.readFileSync(stylesCssPath, 'utf8');
+      }
+      return { success: true, jsCode, cssCode };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+}
+
+// Register all IPC handlers immediately
+registerIpc();
+
+app.whenReady().then(() => {
+  createWindow();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});

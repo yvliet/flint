@@ -1,0 +1,539 @@
+/**
+ * @module ExtensionTypes
+ * @description
+ * TypeScript interfaces and type definitions for Flint's extension architecture.
+ * Defines manifests, extension points, registry contracts, and UI slot configurations.
+ *
+ * @since 0.2.0
+ */
+
+import React from 'react';
+import type { Extension as TiptapExtension } from '@tiptap/react';
+import type { FlintApp } from '../app/FlintApp';
+import type { DocumentItem, TabItem } from '@/types';
+
+/**
+ * Handle representing a disposable resource (event listener, registry item, etc.).
+ * Calling `dispose()` unregisters or cleans up the underlying resource.
+ * @since 0.1.0
+ */
+export interface Disposable {
+  dispose: () => void;
+}
+
+/**
+ * Manifest metadata describing an extension's identity, author, version, and capabilities.
+ * Every extension must declare a static manifest conforming to this interface.
+ * @since 0.2.0
+ */
+export interface ExtensionManifest {
+  /** Unique, slugified extension identifier (e.g., 'backlinks', 'my-custom-extension'). */
+  id: string;
+  /** Human-readable display name of the extension. */
+  name: string;
+  /** SemVer version string (e.g., '1.0.0'). */
+  version: string;
+  /** Minimum Flint host application version required. */
+  minAppVersion?: string;
+  /** Short summary of what the extension does. */
+  description: string;
+  /** Author or maintainer name. */
+  author?: string;
+  /** URL to the author's profile or website. */
+  authorUrl?: string;
+  /** Whether this extension is bundled as a built-in core extension. */
+  isCore?: boolean;
+  /** Icon identifier or custom React node for the extension card. */
+  icon?: string | React.ReactNode;
+  /** Full Markdown readme documentation content. */
+  readme?: string;
+  /** URL or asset path to a banner illustration image. */
+  bannerImage?: string;
+  /** Discovery and categorization tags. */
+  tags?: string[];
+}
+
+/** Backwards compatibility alias */
+export type PluginManifest = ExtensionManifest;
+
+/**
+ * Defines a custom settings tab rendered in the application settings modal.
+ * @since 0.2.0
+ */
+export interface ExtensionSettingTab {
+  /** Unique tab identifier. */
+  id: string;
+  /** Title shown in the settings sidebar navigation list. */
+  name: string;
+  /** Owning extension identifier. */
+  extensionId?: string;
+  /** Legacy plugin ID alias */
+  pluginId?: string;
+  /** Optional icon displayed next to the tab name. */
+  icon?: React.ReactNode;
+  /** Render function returning the tab's settings UI panel. */
+  render: () => React.ReactNode;
+}
+
+/** Backwards compatibility alias */
+export type PluginSettingTab = ExtensionSettingTab;
+
+/**
+ * Defines a command executable via the command palette or keyboard shortcuts.
+ * @since 0.1.0
+ */
+export interface CommandItem {
+  /** Unique command identifier. */
+  id: string;
+  /** Display title shown in the command palette. */
+  title: string;
+  /** Grouping section name (e.g., 'Navigation', 'Editor', 'Files'). */
+  section?: string;
+  /** Icon displayed next to the command title. */
+  icon?: React.ReactNode;
+  /** Keyboard shortcut combo string (e.g., 'Ctrl+Shift+B', 'Alt+.'). */
+  hotkey?: string;
+  /** Whether the hotkey should fire even when an input/textarea element has focus. */
+  allowInInput?: boolean;
+  /** Handler function executed when the command is triggered. */
+  action: (app: FlintApp) => void | Promise<void>;
+  /** Optional predicate determining if the command should appear in the palette. */
+  isVisible?: (app: FlintApp) => boolean;
+}
+
+/**
+ * Defines an icon item rendered in the left action rail bar.
+ * @since 0.2.0
+ */
+export interface ActionRailItem {
+  /** Unique action rail item identifier. */
+  id: string;
+  /** Tooltip title shown on hover. */
+  title: string;
+  /** Icon element rendered in the action rail slot. */
+  icon: React.ReactNode;
+  /** Display ordering priority (lower numbers appear higher). */
+  order?: number;
+  /** Optional notification badge count or indicator dot. */
+  badge?: string | number | null;
+  /** Whether this button is currently in an active/highlighted state. */
+  isActive?: boolean | ((app: FlintApp) => boolean);
+  /** Handler function executed when the action rail item is clicked. */
+  onClick: (app: FlintApp) => void | Promise<void>;
+}
+
+/** Backwards compatibility alias */
+export type RibbonItem = ActionRailItem;
+
+/**
+ * Defines a status bar widget rendered in the bottom information bar.
+ * @since 0.1.0
+ */
+export interface StatusBarItem {
+  /** Unique status bar item identifier. */
+  id: string;
+  /** Placement alignment along the status bar ('left' or 'right', default: 'right'). */
+  alignment?: 'left' | 'right';
+  /** Display ordering priority. */
+  order?: number;
+  /** Render function returning the widget's React node. */
+  render: (app: FlintApp) => React.ReactNode;
+}
+
+/**
+ * Defines a full workspace view type rendered in the main tab area.
+ * @since 0.1.0
+ */
+export interface ViewDefinition {
+  /** Unique view type identifier (e.g., 'graph', 'canvas', 'marketplace'). */
+  type: string;
+  /** Default display title for tabs running this view. */
+  title: string;
+  /** Optional tab icon for tabs running this view. */
+  icon?: React.ReactNode;
+  /** Owning extension identifier. */
+  extensionId?: string;
+  /** Legacy owning plugin identifier. */
+  pluginId?: string;
+  /** Render function for the view content. */
+  render: (props: { tabId?: string; documentId?: string; app: FlintApp }) => React.ReactNode;
+}
+
+/**
+ * Defines a tab panel rendered inside the left or right sidebar container.
+ * @since 0.1.0
+ */
+export interface SidebarTabDefinition {
+  /** Unique sidebar tab identifier. */
+  id: string;
+  /** Display title shown in tooltips and headers. */
+  title: string;
+  /** Icon element rendered in the sidebar switcher. */
+  icon: React.ReactNode;
+  /** Which sidebar container to place this tab in. */
+  side: 'left' | 'right';
+  /** Display ordering priority. */
+  order?: number;
+  /** Render function returning the sidebar tab contents. */
+  render: (app: FlintApp) => React.ReactNode;
+}
+
+/**
+ * Defines an autocomplete slash command in the TipTap rich text editor.
+ * @since 0.1.0
+ */
+export interface SlashCommandDefinition {
+  /** Title of the command displayed in the slash menu list. */
+  title: string;
+  /** Short description explaining what content or block this inserts. */
+  description: string;
+  /** Icon displayed next to the slash command. */
+  icon: string | React.ReactNode;
+  /** Optional badge label (e.g., 'New', 'Pro'). */
+  badge?: string;
+  /** Execution callback receiving the TipTap editor instance and cursor range. */
+  command: (params: { editor: any; range: { from: number; to: number } }) => void;
+}
+
+/**
+ * Defines a header widget rendered above the note content in the editor view.
+ * @since 0.1.0
+ */
+export interface DocumentHeaderDefinition {
+  /** Unique header widget identifier. */
+  id: string;
+  /** Display ordering priority. */
+  order?: number;
+  /** Render function returning the header component. */
+  render: (props: {
+    documentId: string;
+    document?: DocumentItem;
+    mode: 'Visible' | 'Source';
+    isFolded?: boolean;
+    app: FlintApp;
+  }) => React.ReactNode;
+}
+
+/**
+ * Defines a footer widget rendered below the note content in the editor view.
+ * @since 0.1.0
+ */
+export interface DocumentFooterDefinition {
+  /** Unique footer widget identifier. */
+  id: string;
+  /** Display ordering priority. */
+  order?: number;
+  /** Render function returning the footer component. */
+  render: (props: {
+    documentId: string;
+    documentTitle?: string;
+    document?: DocumentItem;
+    app: FlintApp;
+  }) => React.ReactNode;
+}
+
+/**
+ * Defines an action item in the document header dropdown menu ("...").
+ * @since 0.1.0
+ */
+export interface DocMenuActionDefinition {
+  /** Unique action identifier. */
+  id: string;
+  /** Label text shown in the dropdown menu. */
+  title: string;
+  /** Optional icon displayed alongside the label. */
+  icon?: React.ReactNode;
+  /** Display ordering priority within its group. */
+  order?: number;
+  /** Menu group section name. */
+  group?: 'primary' | 'views' | 'tools' | 'danger' | 'linked-view' | 'universal';
+  /** Optional submenu identifier for nesting. */
+  submenu?: string;
+  /** If true, the action is disabled when no document is active. */
+  requiresDoc?: boolean;
+  /** Whether the menu item shows a checked checkmark icon. */
+  isChecked?: boolean | ((app: FlintApp, doc: DocumentItem | null) => boolean);
+  /** Optional visibility filter predicate. */
+  isVisible?: (app: FlintApp, doc: DocumentItem | null) => boolean;
+  /** Handler function invoked when clicked. */
+  onClick: (app: FlintApp, doc: DocumentItem | null) => void | Promise<void>;
+}
+
+/**
+ * Defines a quick-action button in the file tree navigation header.
+ * @since 0.1.0
+ */
+export interface FileTreeActionDefinition {
+  /** Unique action identifier. */
+  id: string;
+  /** Tooltip label shown on hover. */
+  title: string;
+  /** Icon element rendered for the action button. */
+  icon: React.ReactNode;
+  /** Display ordering priority. */
+  order?: number;
+  /** Handler function invoked when clicked. */
+  onClick: (app: FlintApp) => void | Promise<void>;
+}
+
+/**
+ * Defines an empty-editor placeholder hint message.
+ * @since 0.1.0
+ */
+export interface EditorPlaceholderHint {
+  /** Unique placeholder hint identifier. */
+  id: string;
+  /** Hint string displayed when the editor is blank. */
+  hint: string;
+  /** Display ordering priority. */
+  order?: number;
+}
+
+/**
+ * Target UI scope for contextual right-click menus.
+ * @since 0.1.0
+ */
+export type ContextMenuScope =
+  | 'file-tree'
+  | 'file-tree-root'
+  | 'editor'
+  | 'tab'
+  | 'bookmark'
+  | 'universal'
+  | string;
+
+/**
+ * Defines a context menu action item for right-click menus.
+ * @since 0.1.0
+ */
+export interface ContextMenuItemDefinition {
+  /** Unique menu item identifier. */
+  id: string;
+  /** Text label displayed in the context menu. */
+  title: string;
+  /** Optional icon element. */
+  icon?: React.ReactNode;
+  /** Optional keyboard shortcut hint text (e.g., 'Ctrl+C'). */
+  shortcut?: string;
+  /** Scope(s) where this context menu item should be active. */
+  scope?: ContextMenuScope | ContextMenuScope[];
+  /** Display ordering priority. */
+  order?: number;
+  /** Menu group category. */
+  group?: 'primary' | 'tools' | 'views' | 'edit' | 'navigation' | 'danger' | 'plugin' | 'extension' | string;
+  /** Nested submenu items. */
+  submenu?: ContextMenuItemDefinition[];
+  /** Whether the item is currently disabled. */
+  disabled?: boolean | ((app: FlintApp, data?: unknown) => boolean);
+  /** Whether the item renders a checkmark. */
+  checked?: boolean | ((app: FlintApp, data?: unknown) => boolean);
+  /** Whether the item uses destructive/danger styling. */
+  isDanger?: boolean;
+  /** Visibility filter predicate. */
+  isVisible?: (app: FlintApp, data?: unknown) => boolean;
+  /** Handler function invoked when clicked. */
+  onClick?: (app: FlintApp, data?: unknown) => void | Promise<void>;
+}
+
+/**
+ * Defines a global application modal dialogue.
+ * @since 0.1.0
+ */
+export interface ModalDefinition {
+  /** Unique modal identifier. */
+  id: string;
+  /** Render function returning the modal dialog component. */
+  render: (app: FlintApp) => React.ReactNode;
+}
+
+/**
+ * Factory function creating a TipTap / ProseMirror extension.
+ * @since 0.1.0
+ */
+export type TiptapExtensionFactory = () => TiptapExtension | any;
+
+/**
+ * Defines a custom frontmatter property data type handler.
+ * @since 0.1.0
+ */
+export interface PropertyTypeDefinition {
+  /** Unique property type identifier. */
+  id: string;
+  /** Predicate matching frontmatter property key names to this type. */
+  matchKey: (key: string) => boolean;
+  /** Custom display formatting function for rendered property values. */
+  formatDisplay?: (value: unknown) => string;
+  /** Parser function converting raw user text input into structured property value. */
+  parseInput?: (input: string) => unknown;
+  /** Placeholder text shown in the property input field. */
+  placeholder?: string;
+}
+
+/**
+ * Filter predicate determining whether specific frontmatter properties should be hidden.
+ * @since 0.1.0
+ */
+export interface PropertyFilterDefinition {
+  /** Unique filter identifier. */
+  id: string;
+  /** Predicate returning true if the property should be hidden from standard views. */
+  shouldHideProperty: (
+    key: string,
+    value: unknown,
+    context: { docId: string; properties: Record<string, unknown> }
+  ) => boolean;
+}
+
+/**
+ * Defines a custom icon mapping for frontmatter property keys.
+ * @since 0.1.0
+ */
+export interface PropertyIconDefinition {
+  /** Unique property icon identifier. */
+  id: string;
+  /** Human-readable property category name. */
+  name: string;
+  /** Grouping category. */
+  category?: string;
+  /** Search keywords for property icon pickers. */
+  keywords?: string[];
+  /** React component rendering the icon. */
+  component: React.ComponentType<{ size?: number; className?: string }>;
+  /** Default frontmatter key names associated with this icon. */
+  defaultKeys?: string[];
+}
+
+/**
+ * Defines a custom virtual folder or section injected into the file tree sidebar.
+ * @since 0.1.0
+ */
+export interface FileTreeSectionDefinition {
+  /** Unique section identifier. */
+  id: string;
+  /** Display ordering priority. */
+  order?: number;
+  /** Render function returning the custom tree section. */
+  render: (props: {
+    documents: DocumentItem[];
+    sortOrder: string;
+    app: FlintApp;
+  }) => React.ReactNode;
+}
+
+/**
+ * Context provided to file tree item decorators.
+ * @since 0.2.0
+ */
+export interface FileTreeDecoratorContext {
+  /** The target document being rendered. */
+  doc: DocumentItem;
+  /** Currently active tab, if any. */
+  activeTab?: TabItem | null;
+  /** Host application instance. */
+  app: FlintApp;
+}
+
+/**
+ * Decorator modifying how individual document nodes render in the file tree.
+ * @since 0.1.0
+ */
+export interface FileTreeItemDecorator {
+  /** Unique decorator identifier. */
+  id: string;
+  /** Suppresses the standard document node active/selected highlight. */
+  suppressHighlight?: (doc: DocumentItem, context?: FileTreeDecoratorContext) => boolean;
+  /** Suppresses inline title editing for specific document nodes. */
+  suppressEditing?: (doc: DocumentItem, context?: FileTreeDecoratorContext) => boolean;
+  /** Injects prefix elements before the document name. */
+  renderPrefix?: (doc: DocumentItem, context?: FileTreeDecoratorContext) => React.ReactNode;
+  /** Injects suffix elements after the document name. */
+  renderSuffix?: (doc: DocumentItem, context?: FileTreeDecoratorContext) => React.ReactNode;
+}
+
+/**
+ * Decorator modifying how workspace tabs render in the top window tab bar.
+ * @since 0.2.0
+ */
+export interface TabDecoratorDefinition {
+  /** Unique tab decorator identifier. */
+  id: string;
+  /** Sorting order priority (higher orders execute first). */
+  order?: number;
+  /** Predicate determining if this decorator applies to the given tab. */
+  matches?: (tab: TabItem, doc: DocumentItem | null) => boolean;
+  /** Computes the custom display title shown on the tab. */
+  getDisplayTitle?: (tab: TabItem, doc: DocumentItem | null) => string | undefined;
+  /** Computes the custom icon element shown on the tab. */
+  getIcon?: (tab: TabItem, doc: DocumentItem | null, isActive: boolean) => React.ReactNode | undefined;
+  /** Computes the tooltip description when hovering the tab. */
+  getTooltip?: (tab: TabItem, doc: DocumentItem | null) => string | undefined;
+  /** Computes an optional badge or indicator element on the tab. */
+  getBadge?: (tab: TabItem, doc: DocumentItem | null) => React.ReactNode | undefined;
+}
+
+/**
+ * Interactive breadcrumb segment item for the document subheader.
+ * @since 0.2.0
+ */
+export interface BreadcrumbItem {
+  /** Segment identifier (e.g. folder ID, virtual parent ID, or document ID). */
+  id: string;
+  /** Segment title text. */
+  title: string;
+  /** Whether this segment acts as a folder or collection. */
+  isFolder?: boolean;
+  /** Optional icon displayed before the segment text. */
+  icon?: React.ReactNode;
+  /** Custom click handler executed when the breadcrumb segment is clicked. */
+  onClick?: (app: FlintApp, event: React.MouseEvent) => void;
+  /** Custom CSS class names applied to the segment. */
+  className?: string;
+}
+
+/**
+ * Provider customizing the breadcrumb trail and title for documents in the editor subheader.
+ * @since 0.2.0
+ */
+export interface BreadcrumbProviderDefinition {
+  /** Unique breadcrumb provider identifier. */
+  id: string;
+  /** Sorting order priority. */
+  order?: number;
+  /** Predicate determining if this provider should format the given document/tab. */
+  matches: (context: { tab?: TabItem; doc: DocumentItem; isSplit?: boolean }) => boolean;
+  /** Computes the custom list of breadcrumb items. */
+  getBreadcrumbs: (context: {
+    tab?: TabItem;
+    doc: DocumentItem;
+    defaultBreadcrumbs: { id: string; title: string; isFolder: boolean }[];
+    app: FlintApp;
+  }) => BreadcrumbItem[] | undefined;
+  /** Optional title override displayed in the header / subheader. */
+  getTitleOverride?: (context: {
+    tab?: TabItem;
+    doc: DocumentItem;
+    defaultTitle: string;
+  }) => string | undefined;
+}
+
+/**
+ * Options passed when opening a workspace tab.
+ * @since 0.2.0
+ */
+export interface OpenTabOptions {
+  /** Explicit tab ID to create or focus. */
+  id?: string;
+  /** Title override for the tab. */
+  title?: string;
+  /** View type identifier. */
+  viewType?: string;
+  /** View mode identifier. */
+  viewMode?: string;
+  /** Custom icon for the tab. */
+  icon?: React.ReactNode;
+  /** Extension-provided contextual metadata stored on the tab. */
+  metadata?: Record<string, unknown>;
+  /** Whether to replace the currently active tab if it is an empty new tab. Defaults to true. */
+  replaceCurrentEmpty?: boolean;
+}
+

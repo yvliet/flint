@@ -1,0 +1,947 @@
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useDocumentStore } from '@/store/documentStore';
+import { useWorkspaceStore } from '@/store/workspaceStore';
+import { useSidebarDockStore } from '@/store/sidebarDockStore';
+import { useSettingsStore } from '@/store/settingsStore';
+import { TipTapEditor } from './TipTapEditor';
+import { SourceModeEditor } from './SourceModeEditor';
+import { DocOptionsMenu } from './DocOptionsMenu';
+import { FindReplaceBar } from './FindReplaceBar';
+import { useFlintApp, usePluginList, useDocumentHeaders, useDocumentFooters, useBreadcrumbProviders } from '@/core/app/AppContext';
+import { getDocumentPath, getDocumentPathParts, getDocumentBreadcrumbParts, isDocumentLocked } from '@/lib/db/documents';
+import { DocumentProperties } from '@/types';
+import {
+  FileAddIcon,
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  BookOpen01Icon,
+  Edit02Icon,
+  Bookmark01Icon,
+  Search01Icon,
+  Tag01Icon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+} from '@/components/common/Icons';
+
+interface DocumentHeaderItemProps {
+  header: import('@/core/extensions/types').DocumentHeaderDefinition;
+  documentId: string;
+  document: any;
+  mode: 'Visible' | 'Source';
+  isFolded: boolean;
+  app: any;
+}
+
+const DocumentHeaderItem: React.FC<DocumentHeaderItemProps> = React.memo(({
+  header,
+  documentId,
+  document,
+  mode,
+  isFolded,
+  app,
+}) => {
+  return <>{header.render({ documentId, document, mode, isFolded, app })}</>;
+});
+
+interface DocumentFooterItemProps {
+  footer: import('@/core/extensions/types').DocumentFooterDefinition;
+  documentId: string;
+  documentTitle: string;
+  document: any;
+  app: any;
+}
+
+const DocumentFooterItem: React.FC<DocumentFooterItemProps> = React.memo(({
+  footer,
+  documentId,
+  documentTitle,
+  document,
+  app,
+}) => {
+  return <>{footer.render({ documentId, documentTitle, document, app })}</>;
+});
+
+interface EditorCanvasProps {
+  pane?: 'main' | 'split';
+  paneId?: string;
+  documentId?: string;
+  isSidebar?: boolean;
+}
+
+export const EditorCanvas: React.FC<EditorCanvasProps> = React.memo(({ pane = 'main', paneId, documentId, isSidebar }) => {
+  const currentPaneId = paneId || (pane === 'split' ? 'split' : 'main');
+  const isSidebarMode = Boolean(isSidebar || currentPaneId.startsWith('sidebar:'));
+  const documents = useDocumentStore((s) => s.documents);
+  const activeDocument = useDocumentStore((s) => s.activeDocument);
+  const saveCurrentDocument = useDocumentStore((s) => s.saveCurrentDocument);
+  const saveDocumentById = useDocumentStore((s) => s.saveDocumentById);
+  const createNewNote = useDocumentStore((s) => s.createNewNote);
+  const setActiveDocumentById = useDocumentStore((s) => s.setActiveDocumentById);
+  const updateDocumentTitleInMemory = useDocumentStore((s) => s.updateDocumentTitleInMemory);
+  const toggleBookmark = useDocumentStore((s) => s.toggleBookmark);
+
+  const app = useFlintApp();
+  usePluginList(); // Subscribe to reactive plugin state changes
+  const documentHeaders = useDocumentHeaders();
+  const documentFooters = useDocumentFooters();
+  const hasActiveHeaders = documentHeaders.length > 0;
+
+  const inlineTitle = useSettingsStore((s) => s.inlineTitle);
+  const readableLineLength = useSettingsStore((s) => s.readableLineLength);
+  const defaultTabMode = useSettingsStore((s) => s.defaultTabMode);
+  const defaultEditingMode = useSettingsStore((s) => s.defaultEditingMode);
+  const propertiesInDoc = useSettingsStore((s) => s.propertiesInDoc);
+  const foldHeading = useSettingsStore((s) => s.foldHeading);
+  const lineNumbers = useSettingsStore((s) => s.lineNumbers);
+  const indentationGuides = useSettingsStore((s) => s.indentationGuides);
+  const accentListPrefixes = useSettingsStore((s) => s.accentListPrefixes);
+  const strictLineBreaks = useSettingsStore((s) => s.strictLineBreaks);
+
+  const canGoBack = useWorkspaceStore((s) => s.canGoBack);
+  const canGoForward = useWorkspaceStore((s) => s.canGoForward);
+  const navigateBack = useWorkspaceStore((s) => s.navigateBack);
+  const navigateForward = useWorkspaceStore((s) => s.navigateForward);
+  const openSplitTab = useWorkspaceStore((s) => s.openSplitTab);
+  const splitActiveDocumentId = useWorkspaceStore((s) => s.splitActiveDocumentId);
+  const setSplitActiveDocumentId = useWorkspaceStore((s) => s.setSplitActiveDocumentId);
+  const setActivePane = useWorkspaceStore((s) => s.setActivePane);
+  const setFocusedPane = useWorkspaceStore((s) => s.setFocusedPane);
+  const updateTabTitle = useWorkspaceStore((s) => s.updateTabTitle);
+  const openTabInPane = useWorkspaceStore((s) => s.openTabInPane);
+  const closeTabInPane = useWorkspaceStore((s) => s.closeTabInPane);
+  const setIsCommandPaletteOpen = useWorkspaceStore((s) => s.setIsCommandPaletteOpen);
+  const setIsHelpModalOpen = useWorkspaceStore((s) => s.setIsHelpModalOpen);
+  const activeTabId = useWorkspaceStore((s) => s.activeTabId);
+  const tabs = useWorkspaceStore((s) => s.tabs);
+  const splitTabs = useWorkspaceStore((s) => s.splitTabs);
+  const closeTab = useWorkspaceStore((s) => s.closeTab);
+  const splitActiveTabId = useWorkspaceStore((s) => s.splitActiveTabId);
+  const closeSplitTab = useWorkspaceStore((s) => s.closeSplitTab);
+  const showToast = useWorkspaceStore((s) => s.showToast);
+  const panes = useWorkspaceStore((s) => s.panes);
+  const paneModel = panes[currentPaneId];
+  const breadcrumbProviders = useBreadcrumbProviders();
+
+  const activeTab = useMemo(() => {
+    if (paneModel) {
+      return paneModel.tabs.find((t) => t.id === paneModel.activeTabId) || null;
+    }
+    if (pane === 'split') {
+      return splitTabs.find((t) => t.id === splitActiveTabId) || null;
+    }
+    return tabs.find((t) => t.id === activeTabId) || null;
+  }, [paneModel, pane, splitTabs, splitActiveTabId, tabs, activeTabId]);
+
+  // Determine current document based on explicit documentId prop / active tab / pane
+  const currentDoc = useMemo(() => {
+    if (documentId) {
+      return documents.find((d) => d.id === documentId) || null;
+    }
+    if (activeTab) {
+      const tabDocId = activeTab.document_id;
+      if (tabDocId && !tabDocId.startsWith('__')) {
+        return documents.find((d) => d.id === tabDocId) || null;
+      }
+      return null;
+    }
+    if (paneModel?.activeDocumentId && !paneModel.activeDocumentId.startsWith('__')) {
+      return documents.find((d) => d.id === paneModel.activeDocumentId) || null;
+    }
+    return null;
+  }, [documentId, activeTab, paneModel?.activeDocumentId, documents]);
+
+
+  const matchedBreadcrumbProvider = useMemo(() => {
+    if (!currentDoc) return null;
+    return (
+      breadcrumbProviders.find((p) =>
+        p.matches({ tab: activeTab || undefined, doc: currentDoc, isSplit: currentPaneId !== 'main' })
+      ) || null
+    );
+  }, [breadcrumbProviders, activeTab, currentDoc, currentPaneId]);
+
+  const breadcrumbItems = useMemo(() => {
+    if (!currentDoc) return [];
+    const defaultParts = getDocumentBreadcrumbParts(currentDoc, documents);
+    if (matchedBreadcrumbProvider) {
+      const custom = matchedBreadcrumbProvider.getBreadcrumbs({
+        tab: activeTab || undefined,
+        doc: currentDoc,
+        defaultBreadcrumbs: defaultParts,
+        app,
+      });
+      if (custom && custom.length > 0) return custom;
+    }
+    return defaultParts;
+  }, [currentDoc, documents, matchedBreadcrumbProvider, activeTab, app]);
+
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [isReadingMode, setIsReadingMode] = useState(defaultTabMode === 'Reading view');
+
+  const breadcrumbTitleOverride = useMemo(() => {
+    if (!currentDoc || !matchedBreadcrumbProvider?.getTitleOverride) return undefined;
+    return matchedBreadcrumbProvider.getTitleOverride({
+      tab: activeTab || undefined,
+      doc: currentDoc,
+      defaultTitle: title || currentDoc.title || 'Untitled',
+    });
+  }, [currentDoc, matchedBreadcrumbProvider, activeTab, title]);
+
+  const isLocked = useMemo(() => {
+    return isDocumentLocked(currentDoc);
+  }, [currentDoc]);
+
+  const effectiveReadingMode = isReadingMode || isLocked;
+  const isEditable = !effectiveReadingMode;
+  const isSourceMode = !effectiveReadingMode && defaultEditingMode === 'Source mode';
+
+  const [isEditingSubheader, setIsEditingSubheader] = useState(false);
+  const [isMainTitleFocused, setIsMainTitleFocused] = useState(false);
+  const subheaderInputRef = useRef<HTMLInputElement>(null);
+  const [editorInstance, setEditorInstance] = useState<any>(null);
+  const [isFindOpen, setIsFindOpen] = useState(false);
+  const [isReplaceOpen, setIsReplaceOpen] = useState(false);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+
+  const [isHeaderFolded, setIsHeaderFolded] = useState<boolean>(() => {
+    if (!currentDoc) return false;
+    try {
+      const stored = localStorage.getItem(`flint_props_folded_${currentDoc.id}`);
+      return stored !== null ? JSON.parse(stored) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const handleFindEvent = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.paneId !== undefined && detail.paneId !== currentPaneId) return;
+      setIsFindOpen((prevFind) => {
+        if (prevFind) {
+          setIsReplaceOpen(false);
+          return false;
+        }
+        setIsReplaceOpen(false);
+        return true;
+      });
+    };
+
+    const handleReplaceEvent = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.paneId !== undefined && detail.paneId !== currentPaneId) return;
+      setIsFindOpen((prevFind) => {
+        if (!prevFind) {
+          setIsReplaceOpen(true);
+          return true;
+        }
+        setIsReplaceOpen((prevReplace) => !prevReplace);
+        return true;
+      });
+    };
+
+    window.addEventListener('flint:find-in-note', handleFindEvent);
+    window.addEventListener('flint:replace-in-note', handleReplaceEvent);
+
+    return () => {
+      window.removeEventListener('flint:find-in-note', handleFindEvent);
+      window.removeEventListener('flint:replace-in-note', handleReplaceEvent);
+    };
+  }, [currentPaneId]);
+
+
+  useEffect(() => {
+    setIsReadingMode(defaultTabMode === 'Reading view');
+  }, [defaultTabMode]);
+
+  useEffect(() => {
+    if (currentDoc) {
+      try {
+        const stored = localStorage.getItem(`flint_props_folded_${currentDoc.id}`);
+        setIsHeaderFolded(stored !== null ? JSON.parse(stored) : false);
+      } catch {
+        setIsHeaderFolded(false);
+      }
+    }
+  }, [currentDoc?.id]);
+
+  const toggleHeaderFold = useCallback(() => {
+    if (!currentDoc) return;
+    setIsHeaderFolded((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(`flint_props_folded_${currentDoc.id}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, [currentDoc]);
+
+  const isDuplicateTitle = useMemo(() => {
+    if (!currentDoc) return false;
+    if (!isMainTitleFocused && !isEditingSubheader) return false;
+    const trimmed = title.trim().toLowerCase();
+    if (!trimmed) return false;
+    if (trimmed === currentDoc.title.trim().toLowerCase()) return false;
+    return documents.some(
+      (d) =>
+        d.id !== currentDoc.id &&
+        !d.is_folder &&
+        d.title.trim().toLowerCase() === trimmed
+    );
+  }, [documents, title, currentDoc, isMainTitleFocused, isEditingSubheader]);
+
+  const activeDocIdRef = useRef<string | null>(null);
+  const saveTimerRef = useRef<any>(null);
+  const pendingContentRef = useRef<string | null>(null);
+  const pendingTitleRef = useRef<string | null>(null);
+
+  // Helper to flush any pending save immediately
+  const flushPendingSave = useCallback(() => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    const docId = activeDocIdRef.current;
+    const contentToSave = pendingContentRef.current;
+    const titleToSave = pendingTitleRef.current;
+
+    if (docId && (contentToSave !== null || titleToSave !== null)) {
+      pendingContentRef.current = null;
+      pendingTitleRef.current = null;
+
+      saveDocumentById(
+        docId,
+        contentToSave !== null ? contentToSave : (currentDoc?.content_json || '{}'),
+        titleToSave !== null ? titleToSave : undefined
+      );
+    }
+  }, [currentDoc?.content_json, saveDocumentById]);
+
+  // Sync state when active document changes
+  useEffect(() => {
+    if (currentDoc) {
+      const docChanged = activeDocIdRef.current !== currentDoc.id;
+
+      if (docChanged) {
+        // 1. Immediately flush pending save for the OLD document before loading the new one!
+        if (activeDocIdRef.current && (pendingContentRef.current !== null || pendingTitleRef.current !== null)) {
+          const oldDocId = activeDocIdRef.current;
+          const oldContent = pendingContentRef.current;
+          const oldTitle = pendingTitleRef.current;
+          pendingContentRef.current = null;
+          pendingTitleRef.current = null;
+          if (saveTimerRef.current) {
+            clearTimeout(saveTimerRef.current);
+            saveTimerRef.current = null;
+          }
+          saveDocumentById(oldDocId, oldContent !== null ? oldContent : '{}', oldTitle || undefined);
+        }
+
+        activeDocIdRef.current = currentDoc.id;
+        setTitle(currentDoc.title);
+        const safeContent =
+          currentDoc.content_json && currentDoc.content_json !== '{}'
+            ? currentDoc.content_json
+            : JSON.stringify({
+                type: 'doc',
+                content: [
+                  {
+                    type: 'heading',
+                    attrs: { level: 1 },
+                    content: [{ type: 'text', text: currentDoc.title || 'Untitled' }],
+                  },
+                  {
+                    type: 'paragraph',
+                    content: [],
+                  },
+                ],
+              });
+        setContent(safeContent);
+        setIsEditingSubheader(false);
+      } else {
+        // Same document updated (e.g. from background auto-save or edit from another pane)
+        if (!isEditingSubheader && !isMainTitleFocused) {
+          setTitle(currentDoc.title);
+        }
+        if (pendingContentRef.current === null && currentDoc.content_json) {
+          setContent(currentDoc.content_json);
+        }
+      }
+    } else {
+      if (activeDocIdRef.current && (pendingContentRef.current !== null || pendingTitleRef.current !== null)) {
+        const oldDocId = activeDocIdRef.current;
+        const oldContent = pendingContentRef.current;
+        const oldTitle = pendingTitleRef.current;
+        pendingContentRef.current = null;
+        pendingTitleRef.current = null;
+        if (saveTimerRef.current) {
+          clearTimeout(saveTimerRef.current);
+          saveTimerRef.current = null;
+        }
+        saveDocumentById(oldDocId, oldContent !== null ? oldContent : '{}', oldTitle || undefined);
+      }
+      activeDocIdRef.current = null;
+      setTitle('');
+      setContent('');
+      setIsEditingSubheader(false);
+    }
+  }, [currentDoc?.id, currentDoc?.title, currentDoc?.content_json, saveDocumentById, isEditingSubheader, isMainTitleFocused]);
+
+  // Flush on unmount (e.g. switching views, closing pane)
+  useEffect(() => {
+    return () => {
+      flushPendingSave();
+    };
+  }, [flushPendingSave]);
+
+  // Flush on window blur (alt-tabbing), beforeunload (closing tab/window), and explicit save event
+  useEffect(() => {
+    const handleBlurOrUnload = () => {
+      flushPendingSave();
+    };
+    window.addEventListener('blur', handleBlurOrUnload);
+    window.addEventListener('beforeunload', handleBlurOrUnload);
+    window.addEventListener('flint:save-note', handleBlurOrUnload);
+    return () => {
+      window.removeEventListener('blur', handleBlurOrUnload);
+      window.removeEventListener('beforeunload', handleBlurOrUnload);
+      window.removeEventListener('flint:save-note', handleBlurOrUnload);
+    };
+  }, [flushPendingSave]);
+
+  useEffect(() => {
+    if (isEditingSubheader && subheaderInputRef.current) {
+      subheaderInputRef.current.focus();
+      subheaderInputRef.current.select();
+    }
+  }, [isEditingSubheader]);
+
+  const scheduleDebouncedSave = useCallback((newContent?: string, newTitle?: string) => {
+    if (newContent !== undefined) pendingContentRef.current = newContent;
+    if (newTitle !== undefined) pendingTitleRef.current = newTitle;
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      flushPendingSave();
+    }, 400);
+  }, [flushPendingSave]);
+
+  const handleTitleChange = useCallback((val: string) => {
+    if (isLocked) return;
+    setTitle(val);
+    if (currentDoc) {
+      const trimmed = val.trim().toLowerCase();
+      const hasCollision = documents.some(
+        (d) =>
+          d.id !== currentDoc.id &&
+          !d.is_folder &&
+          d.title.trim().toLowerCase() === trimmed
+      );
+      if (!hasCollision && trimmed) {
+        updateDocumentTitleInMemory(currentDoc.id, val);
+        updateTabTitle(currentDoc.id, val);
+        if (isSidebarMode) {
+          useSidebarDockStore.setState((s) => ({
+            items: s.items.map((it) =>
+              it.documentId === currentDoc.id ? { ...it, title: val } : it
+            ),
+          }));
+        }
+        scheduleDebouncedSave(undefined, val);
+      }
+    }
+  }, [currentDoc, documents, updateDocumentTitleInMemory, updateTabTitle, scheduleDebouncedSave, isLocked, isSidebarMode]);
+
+
+  const handleContentChange = useCallback((newJson: string) => {
+    if (isLocked) return;
+    pendingContentRef.current = newJson;
+    scheduleDebouncedSave(newJson, undefined);
+  }, [scheduleDebouncedSave, isLocked]);
+
+  const handleSourceModeChange = useCallback(
+    (newContentJson: string, newTitle?: string, newProps?: DocumentProperties) => {
+      if (isLocked) return;
+      pendingContentRef.current = newContentJson;
+      if (newTitle && newTitle !== title) {
+        setTitle(newTitle);
+        if (currentDoc) {
+          updateDocumentTitleInMemory(currentDoc.id, newTitle);
+          updateTabTitle(currentDoc.id, newTitle);
+          pendingTitleRef.current = newTitle;
+        }
+      }
+      if (newProps && currentDoc) {
+        useDocumentStore.setState((s) => ({
+          documentProperties: newProps,
+          documents: s.documents.map((d) =>
+            d.id === currentDoc.id ? { ...d, properties: JSON.stringify(newProps) } : d
+          ),
+          activeDocument:
+            s.activeDocument && s.activeDocument.id === currentDoc.id
+              ? { ...s.activeDocument, properties: JSON.stringify(newProps) }
+              : s.activeDocument,
+        }));
+      }
+      scheduleDebouncedSave(newContentJson, newTitle);
+    },
+    [isLocked, title, currentDoc, updateDocumentTitleInMemory, updateTabTitle, scheduleDebouncedSave]
+  );
+
+  const handleBack = useCallback(async () => {
+    await navigateBack();
+  }, [navigateBack]);
+
+  const handleForward = useCallback(async () => {
+    await navigateForward();
+  }, [navigateForward]);
+
+  const handleViewToggle = useCallback((e: React.MouseEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      if (currentDoc) {
+        openSplitTab(currentDoc.id, currentDoc.title);
+      }
+    } else {
+      if (isLocked) {
+        showToast('Note is locked (Read-only). Unlock it in Properties to edit.', 'warning');
+        return;
+      }
+      setIsReadingMode((prev) => !prev);
+    }
+  }, [currentDoc, openSplitTab, isLocked, showToast]);
+
+  return (
+    <div
+      ref={editorContainerRef}
+      onClick={() => {
+        if (!isSidebarMode) {
+          setFocusedPane(currentPaneId);
+        }
+      }}
+      data-doc-view="true"
+      style={{ touchAction: 'pan-x pan-y' }}
+      className={`flint-doc-wrapper editor-canvas flex-1 flex flex-col h-full overflow-hidden ${
+        isSidebarMode ? 'bg-transparent' : 'bg-[#181818]'
+      }`}
+    >
+
+      {/* Obsidian Document Sub-Header: Navigation Arrows, Breadcrumbs & Options - Hidden in Sidebar Mode */}
+      {!isSidebarMode && (
+        <div data-sub-header="true" className="relative h-8 px-4 flex items-center justify-between text-xs text-[#777] shrink-0 select-none">
+
+        {/* Left: Navigation History Arrows */}
+        <div className="relative z-10 flex items-center gap-0.5 shrink-0">
+          <button
+            onClick={handleBack}
+            disabled={!canGoBack}
+            data-tooltip="Navigate back"
+            data-shortcuts={JSON.stringify(['Alt + Left', 'Alt + A'])}
+            className="p-1 rounded hover:bg-[#222] disabled:opacity-20 disabled:hover:bg-transparent text-[#777] hover:text-[#dcddde] transition-colors"
+          >
+            <ArrowLeft01Icon size={14} />
+          </button>
+          <button
+            onClick={handleForward}
+            disabled={!canGoForward}
+            data-tooltip="Navigate forward"
+            data-shortcuts={JSON.stringify(['Alt + Right', 'Alt + D'])}
+            className="p-1 rounded hover:bg-[#222] disabled:opacity-20 disabled:hover:bg-transparent text-[#777] hover:text-[#dcddde] transition-colors"
+          >
+            <ArrowRight01Icon size={14} />
+          </button>
+        </div>
+
+        {/* Center: Truly Absolute Centered Document Breadcrumb Title (Click to rename live in-place) */}
+        <div className="absolute inset-x-0 inset-y-0 flex items-center justify-center pointer-events-none px-28">
+          {currentDoc ? (
+            <div className="pointer-events-auto text-[12px] truncate max-w-sm px-1.5 py-0.5 text-center select-none flex items-center justify-center">
+              {(() => {
+                const parts = breadcrumbItems;
+                const hasFolders = parts.length > 1;
+
+                return (
+                  <>
+                    {hasFolders &&
+                      parts.slice(0, -1).map((folderPart: any) => (
+                        <React.Fragment key={folderPart.id}>
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (folderPart.onClick) {
+                                folderPart.onClick(app, e);
+                                return;
+                              }
+                              const { isLeftSidebarOpen, toggleLeftSidebar, setActiveLeftView } =
+                                useWorkspaceStore.getState();
+                              if (!isLeftSidebarOpen) {
+                                toggleLeftSidebar();
+                              }
+                              setActiveLeftView('files');
+                              window.dispatchEvent(
+                                new CustomEvent('flint:reveal-tree-item', {
+                                  detail: { id: folderPart.id },
+                                })
+                              );
+                            }}
+                            className={`text-[#666] hover:text-[#999] cursor-pointer transition-colors inline-flex items-center gap-1 ${
+                              folderPart.className || ''
+                            }`}
+                          >
+                            {folderPart.icon}
+                            {folderPart.title}
+                          </span>
+                          <span className="text-[#444] select-none mx-1">/</span>
+                        </React.Fragment>
+                      ))}
+
+                    {/* Active File Title with in-place Inline Rename */}
+                    {isEditingSubheader ? (
+                      <div className="relative inline-flex items-center min-w-[30px] max-w-[280px]">
+                        {/* Invisible sizer text with exact matching typography and padding */}
+                        <span
+                          className="invisible px-1.5 py-0.5 whitespace-pre font-normal text-[12px] font-sans pointer-events-none select-none"
+                          aria-hidden="true"
+                        >
+                          {title || 'Untitled'}
+                        </span>
+
+                        <input
+                          ref={subheaderInputRef}
+                          type="text"
+                          value={title}
+                          onChange={(e) => handleTitleChange(e.target.value)}
+                          onBlur={() => {
+                            if (isDuplicateTitle && currentDoc) {
+                              setTitle(currentDoc.title);
+                            }
+                            setIsEditingSubheader(false);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              if (isDuplicateTitle && currentDoc) {
+                                setTitle(currentDoc.title);
+                              }
+                              setIsEditingSubheader(false);
+                            } else if (e.key === 'Escape') {
+                              if (currentDoc) {
+                                setTitle(currentDoc.title);
+                              }
+                              setIsEditingSubheader(false);
+                            }
+                          }}
+                          className="absolute inset-0 w-full h-full bg-transparent border-none outline-none p-0 m-0 px-1.5 py-0.5 text-left text-[12px] text-[#dcddde] font-normal caret-[#888] selection:bg-[#505560] selection:text-white font-sans"
+                        />
+
+                        {/* Duplicate Name Warning Tooltip */}
+                        {isDuplicateTitle && (
+                          <div className="absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center select-none shadow-2xl">
+                            <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-b-[5px] border-l-transparent border-r-transparent border-b-[#f85153]" />
+                            <div className="bg-[#f85153] text-[#111111] text-[11px] font-medium leading-tight px-3 py-1.5 rounded-[6px] shadow-lg whitespace-nowrap">
+                              There's already a file with the same name
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span
+                        onClick={() => {
+                          if (isLocked) {
+                            showToast('Note is locked (Read-only). Unlock it in Properties to rename.', 'info');
+                            return;
+                          }
+                          setIsEditingSubheader(true);
+                        }}
+                        title={isLocked ? 'Note is locked (Read-only)' : 'Click to rename'}
+                        className={`text-[#dcddde] font-normal px-1.5 py-0.5 inline-flex items-center gap-1 ${
+                          isLocked ? 'cursor-default' : 'cursor-text'
+                        }`}
+                      >
+                        {(parts[parts.length - 1] as any)?.icon}
+                        {breadcrumbTitleOverride || title || (hasFolders ? parts[parts.length - 1].title : 'Untitled')}
+                      </span>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Right: Reading View, Bookmark, Search & More Options */}
+        <div className="relative z-10 flex items-center gap-0.5 shrink-0">
+          <button
+            onClick={handleViewToggle}
+            disabled={!currentDoc}
+            title={
+              !currentDoc
+                ? 'Reading view'
+                : isLocked
+                ? 'Note is locked (Read-only)\nUnlock in Properties to enable Editing view\n(Ctrl+Click to split)'
+                : effectiveReadingMode
+                ? 'Reading view\n(Ctrl+Click to split)'
+                : 'Editing view\n(Ctrl+Click to split)'
+            }
+            className={`p-1 rounded transition-colors ${
+              !currentDoc
+                ? 'opacity-20 cursor-default hover:bg-transparent text-[#777]'
+                : isLocked
+                ? 'text-[#666] opacity-40 hover:bg-transparent cursor-not-allowed'
+                : 'hover:bg-[#222] text-[#777] hover:text-[#dcddde] cursor-pointer'
+            }`}
+          >
+            {effectiveReadingMode ? <BookOpen01Icon size={14} /> : <Edit02Icon size={14} />}
+          </button>
+
+          <button
+            onClick={async () => {
+              if (!currentDoc) return;
+              await toggleBookmark(currentDoc.id);
+              showToast(
+                currentDoc.is_bookmarked
+                  ? `Removed bookmark: "${currentDoc.title || 'Untitled'}"`
+                  : `Bookmarked: "${currentDoc.title || 'Untitled'}"`,
+                'info'
+              );
+            }}
+            disabled={!currentDoc}
+            title={currentDoc?.is_bookmarked ? 'Remove bookmark' : 'Bookmark note'}
+            className={`p-1 rounded transition-colors disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer ${
+              currentDoc?.is_bookmarked
+                ? 'text-[#f59e0b] hover:text-[#fbbf24] hover:bg-[#282828]'
+                : 'text-[#777] hover:text-[#dcddde] hover:bg-[#222]'
+            }`}
+          >
+            <Bookmark01Icon size={14} className={currentDoc?.is_bookmarked ? 'fill-current' : ''} />
+          </button>
+
+          <button
+            onClick={() => {
+              setIsFindOpen((prevFind) => {
+                if (prevFind) {
+                  setIsReplaceOpen(false);
+                  return false;
+                }
+                setIsReplaceOpen(false);
+                return true;
+              });
+            }}
+            disabled={!currentDoc}
+            title={isFindOpen ? 'Close find (Ctrl+F)' : 'Find in document (Ctrl+F)'}
+            className={`p-1 rounded transition-colors disabled:opacity-20 disabled:hover:bg-transparent cursor-pointer ${
+              isFindOpen
+                ? 'text-white bg-[#282828]'
+                : 'text-[#777] hover:text-[#dcddde] hover:bg-[#222]'
+            }`}
+          >
+            <Search01Icon size={14} />
+          </button>
+
+          <DocOptionsMenu document={currentDoc} />
+        </div>
+      </div>
+      )}
+
+      {/* Main Body: Minimal Obsidian Empty State or Document Prose Editor */}
+      {!currentDoc ? (
+        <div className={`flex-1 flex flex-col items-center justify-center select-none p-6 gap-3 ${isSidebarMode ? 'bg-transparent' : 'bg-[#181818]'}`}>
+          <button
+            onClick={async () => {
+              const newDoc = await createNewNote('Untitled', null, 'base', false);
+              if (newDoc) {
+                openTabInPane(currentPaneId, newDoc.id, newDoc.title);
+              }
+            }}
+            className="text-[13px] text-[#888888] hover:text-[#dcddde] transition-colors cursor-pointer"
+          >
+            Create new note <span className="text-[#555] ml-1">Ctrl + N</span>
+          </button>
+
+          {!isSidebarMode && (
+            <>
+              <button
+                onClick={() => setIsCommandPaletteOpen(true)}
+                className="text-[13px] text-[#888888] hover:text-[#dcddde] transition-colors cursor-pointer"
+              >
+                Go to file <span className="text-[#555] ml-1">Ctrl + O</span>
+              </button>
+
+              <button
+                onClick={() => setIsHelpModalOpen(true)}
+                className="text-[13px] text-[#888888] hover:text-[#dcddde] transition-colors cursor-pointer"
+              >
+                Syntax & Help Guide <span className="text-[#555] ml-1">F1</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (activeTab) {
+                    closeTabInPane(currentPaneId, activeTab.id);
+                  } else if (pane === 'split' && splitActiveTabId) {
+                    closeSplitTab(splitActiveTabId);
+                  } else if (activeTabId) {
+                    closeTab(activeTabId);
+                  }
+                }}
+                className="text-[13px] text-[#888888] hover:text-[#dcddde] transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="flex-1 overflow-hidden relative flex flex-col min-w-0">
+          {/* Obsidian In-Note Find & Replace Top Floating Overlay Bar */}
+          <FindReplaceBar
+            editor={editorInstance}
+            isOpen={isFindOpen}
+            isReplaceOpen={isReplaceOpen}
+            onClose={() => setIsFindOpen(false)}
+            onToggleReplace={() => setIsReplaceOpen((prev) => !prev)}
+          />
+
+          <div
+            style={{ touchAction: 'pan-x pan-y' }}
+            className={`flex-1 overflow-y-auto custom-scrollbar ${isReadingMode ? 'cursor-default' : ''}`}
+          >
+            <div
+              className={`mx-auto pt-3 pb-8 flex flex-col min-h-full ${
+                isSidebarMode ? 'w-full pl-7 pr-3 max-w-none' : readableLineLength ? 'max-w-3xl px-10' : 'w-full px-12 max-w-none'
+              }`}
+            >
+              {isSourceMode ? (
+                <SourceModeEditor
+                  key={`source-${currentDoc.id}`}
+                  documentId={currentDoc.id}
+                  contentJson={content}
+                  title={title || currentDoc.title}
+                  properties={currentDoc.properties}
+                  editable={isEditable}
+                  onChange={handleSourceModeChange}
+                  onSave={flushPendingSave}
+                />
+              ) : (
+                <>
+                  {/* Document Header (Title + In-Document Properties & Tags) */}
+                  <div className="relative group/title">
+                    {/* Document Title Header */}
+                    {inlineTitle && (
+                      <div className={`${hasActiveHeaders ? 'mb-3' : 'mb-4'} relative`}>
+                        {/* Fold button on Document Title Header */}
+                        {foldHeading && hasActiveHeaders && currentDoc && (
+                          <button
+                            type="button"
+                            onClick={toggleHeaderFold}
+                            title={isHeaderFolded ? 'Unfold document header' : 'Fold document header'}
+                            className={`absolute ${
+                              isSidebarMode ? '-left-[22px] w-[22px]' : '-left-[36px] w-[36px]'
+                            } top-[calc(50%-4px)] -translate-y-1/2 h-[32px] flex items-center justify-start pl-[2px] text-[#777] hover:text-[#dcddde] transition-opacity cursor-pointer z-10 ${
+                              isHeaderFolded ? 'opacity-100 text-[#aaa]' : 'opacity-0 group-hover/title:opacity-100'
+                            }`}
+                          >
+                            {isHeaderFolded ? <ChevronRightIcon size={18} /> : <ChevronDownIcon size={18} />}
+                          </button>
+                        )}
+
+
+                        {effectiveReadingMode ? (
+                          <h1
+                            style={{ fontSize: 'calc(var(--editor-font-size, 12px) * 2.3)' }}
+                            className="w-full font-bold text-[var(--flint-text-primary)] pb-2 font-text tracking-tight leading-tight cursor-default select-text"
+                          >
+                            {breadcrumbTitleOverride || title || 'Untitled'}
+                          </h1>
+                        ) : (
+                          <div className="relative w-full">
+                            <input
+                              type="text"
+                              value={isMainTitleFocused ? title : (breadcrumbTitleOverride || title)}
+                              style={{ fontSize: 'calc(var(--editor-font-size, 12px) * 2.3)' }}
+                              onFocus={() => setIsMainTitleFocused(true)}
+                              onChange={(e) => handleTitleChange(e.target.value)}
+                              onBlur={() => {
+                                setIsMainTitleFocused(false);
+                                if (isDuplicateTitle && currentDoc) {
+                                  setTitle(currentDoc.title);
+                                }
+                              }}
+                              placeholder="Untitled"
+                              className="w-full font-bold bg-transparent text-[var(--flint-text-primary)] placeholder:text-[var(--flint-text-muted)] placeholder:opacity-40 outline-none pb-2 transition-all font-text tracking-tight leading-tight"
+                            />
+
+                            {/* Duplicate Name Warning Tooltip */}
+                            {isDuplicateTitle && (
+                              <div className="absolute top-[calc(100%+4px)] left-0 z-50 pointer-events-none flex flex-col items-start select-none shadow-2xl">
+                                <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-b-[5px] border-l-transparent border-r-transparent border-b-[#f85153] ml-4" />
+                                <div className="bg-[#f85153] text-[#111111] text-[11px] font-medium leading-tight px-3 py-1.5 rounded-[6px] shadow-lg whitespace-nowrap">
+                                  There's already a file with the same name
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Dynamic In-Document Headers */}
+                    {hasActiveHeaders && currentDoc && (
+                      <div className="mb-3">
+                        {documentHeaders.map((header) => (
+                          <DocumentHeaderItem
+                            key={header.id}
+                            header={header}
+                            documentId={currentDoc.id}
+                            document={currentDoc}
+                            mode={propertiesInDoc as 'Visible' | 'Source'}
+                            isFolded={isHeaderFolded}
+                            app={app}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+
+                  {/* TipTap Editor Prose Canvas */}
+                  <div
+                    className={`flex-1 flex flex-col ${
+                      lineNumbers ? 'flint-line-numbers' : ''
+                    } ${indentationGuides ? 'flint-indent-guides' : ''} ${
+                      accentListPrefixes ? 'flint-accent-lists' : ''
+                    } ${strictLineBreaks ? 'flint-strict-line-breaks' : ''} ${
+                      !isEditable ? 'tiptap-reading-view cursor-default' : ''
+                    }`}
+                  >
+                    <TipTapEditor
+                      key={currentDoc.id}
+                      documentId={currentDoc.id}
+                      content={content}
+                      editable={isEditable}
+                      onChange={handleContentChange}
+                      onEditorReady={setEditorInstance}
+                    />
+                  </div>
+
+                  {/* Dynamic In-Document Footers (Backlinks, Mentions, etc.) */}
+                  {documentFooters.map((footer) => (
+                    <DocumentFooterItem
+                      key={footer.id}
+                      footer={footer}
+                      documentId={currentDoc.id}
+                      documentTitle={currentDoc.title}
+                      document={currentDoc}
+                      app={app}
+                    />
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+      </div>
+      )}
+    </div>
+  );
+});
+
