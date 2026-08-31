@@ -414,30 +414,20 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     };
 
     const ws = useWorkspaceStore.getState();
-    const currentMode = ws.mainViewMode;
-    const isDocumentView = currentMode === 'document';
 
     // 0ms instantaneous optimistic state update
     set((state) => ({
       documents: [doc, ...state.documents],
-      editingDocId: isDocumentView ? doc.id : null,
+      editingDocId: doc.id,
       searchQuery: '',
-      activeDocument: isDocumentView ? doc : state.activeDocument,
-      selectedDocIds: isDocumentView ? [doc.id] : state.selectedDocIds,
-      lastSelectedDocId: isDocumentView ? doc.id : state.lastSelectedDocId,
+      activeDocument: doc,
+      selectedDocIds: [doc.id],
+      lastSelectedDocId: doc.id,
     }));
 
-    if (isDocumentView) {
-      if (ws.activeLeftView !== 'files') {
-        ws.setActiveLeftView('files');
-      }
-      if (!ws.isLeftSidebarOpen) {
-        ws.setIsLeftSidebarOpen(true);
-      }
-      if (autoOpenInMain) {
-        ws.setMainViewMode('document');
-        ws.openTab(doc.id, doc.title);
-      }
+    if (autoOpenInMain) {
+      ws.setMainViewMode('document');
+      ws.openTab(doc.id, doc.title);
     }
 
     // Persist in background without blocking UI thread

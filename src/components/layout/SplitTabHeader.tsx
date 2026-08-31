@@ -278,9 +278,40 @@ export const SplitTabHeader: React.FC<SplitTabHeaderProps> = React.memo(({ paneI
     [splitTabs, targetPaneId, closeTabInPane, closePane, splitPane, documents, vaultPath, showToast, showContextMenu]
   );
 
+  const handleHeaderContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const items: ContextMenuItem[] = [
+        {
+          id: 'new-tab',
+          title: 'New tab',
+          onClick: () => {
+            setFocusedPane(targetPaneId);
+            openEmptyTabInPane(targetPaneId);
+          },
+        },
+        { type: 'separator' },
+        {
+          id: 'close-pane',
+          title: 'Close pane',
+          isDanger: true,
+          onClick: () => {
+            closePane(targetPaneId);
+          },
+        },
+      ];
+
+      showContextMenu(e, items);
+    },
+    [targetPaneId, setFocusedPane, openEmptyTabInPane, closePane, showContextMenu]
+  );
+
   return (
     <div
       onClick={() => setFocusedPane(targetPaneId)}
+      onContextMenu={handleHeaderContextMenu}
       style={{
         background: 'var(--flint-bg-header, var(--flint-bg-sidebar))',
       }}
@@ -444,15 +475,6 @@ export const SplitTabHeader: React.FC<SplitTabHeaderProps> = React.memo(({ paneI
           <PlusSignIcon size={14} />
         </button>
       </div>
-
-      {/* Close Split View Button on the Right */}
-      <button
-        onClick={() => closePane(targetPaneId)}
-        title="Close pane"
-        className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-[var(--flint-bg-card-hover)] text-[var(--flint-text-muted)] hover:text-[var(--flint-text-primary)] transition-colors shrink-0 self-center ml-1 cursor-pointer"
-      >
-        <Cancel01Icon size={13} />
-      </button>
     </div>
   );
 });

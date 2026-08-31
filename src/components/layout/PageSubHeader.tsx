@@ -37,6 +37,7 @@ export interface PageSubHeaderProps {
   customRightActions?: React.ReactNode;
   floating?: boolean;
   hideBar?: boolean;
+  isSidebar?: boolean;
 }
 
 export const PageSubHeader: React.FC<PageSubHeaderProps> = React.memo(({
@@ -62,7 +63,25 @@ export const PageSubHeader: React.FC<PageSubHeaderProps> = React.memo(({
   customRightActions,
   floating = false,
   hideBar = false,
+  isSidebar: propIsSidebar,
 }) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [isSidebarDetected, setIsSidebarDetected] = React.useState(false);
+
+  React.useEffect(() => {
+    if (propIsSidebar !== undefined) {
+      setIsSidebarDetected(propIsSidebar);
+      return;
+    }
+    if (containerRef.current) {
+      const inSidebar = !!containerRef.current.closest(
+        '[data-sidebar], [data-dock-zone], [data-sidebar-root], [data-sidebar-dock-pane], aside'
+      );
+      setIsSidebarDetected(inSidebar);
+    }
+  }, [propIsSidebar]);
+
+  const isSidebar = propIsSidebar ?? isSidebarDetected;
   const isFrameless = Boolean(floating || hideBar);
   const app = useFlintApp();
   const tabs = useWorkspaceStore((s) => s.tabs);
@@ -129,8 +148,47 @@ export const PageSubHeader: React.FC<PageSubHeaderProps> = React.memo(({
     onToggleReadingMode?.();
   }, [isLocked, onToggleReadingMode, showToast]);
 
+  // Sidebar docked mode: render ONLY floating top-right action buttons in a vertical column
+  if (isSidebar) {
+    const hasAnyAction =
+      Boolean(customRightActions) ||
+      Boolean(customLeftActions) ||
+      (showSearch && Boolean(onToggleFind)) ||
+      (showDocOptions && Boolean(document));
+
+    if (!hasAnyAction) return null;
+
+    return (
+      <div
+        ref={containerRef}
+        data-sub-header="true"
+        data-sidebar-sub-header="true"
+        className="absolute top-2.5 right-2.5 z-30 flex flex-col items-center gap-1 pointer-events-auto select-none"
+      >
+        {customRightActions}
+        {customLeftActions}
+        {showSearch && onToggleFind && (
+          <button
+            type="button"
+            onClick={onToggleFind}
+            title={isFindOpen ? 'Close find (Ctrl+F)' : 'Find (Ctrl+F)'}
+            className={`p-1.5 rounded-md transition-colors ${
+              isFindOpen
+                ? 'text-[var(--flint-text-primary)] bg-[var(--flint-bg-card-hover)]'
+                : 'text-[var(--flint-text-muted)] hover:text-[var(--flint-text-primary)] hover:bg-[var(--flint-bg-card-hover)]'
+            } cursor-pointer`}
+          >
+            <Search01Icon size={14} />
+          </button>
+        )}
+        {showDocOptions && document && <DocOptionsMenu document={document} />}
+      </div>
+    );
+  }
+
   return (
     <div
+      ref={containerRef}
       data-sub-header="true"
       className={
         isFrameless

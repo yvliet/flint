@@ -114,10 +114,11 @@ export const LeftSidebar: React.FC = React.memo(() => {
   );
   const hasBottomSplit = bottomDockItems.length > 0;
 
-  const isDockedNoteTop = useMemo(() => {
+  const isDockedTop = useMemo(() => {
+    if (activeLeftView === 'files' || activeLeftView === 'search') return false;
     return (
       activeLeftView.startsWith('doc:') ||
-      dockItems.some((it) => it.id === activeLeftView && it.zone === 'left-top' && it.type === 'document')
+      dockItems.some((it) => (it.id === activeLeftView || it.viewType === activeLeftView) && it.zone === 'left-top' && it.enabled)
     );
   }, [activeLeftView, dockItems]);
 
@@ -465,8 +466,8 @@ export const LeftSidebar: React.FC = React.memo(() => {
         />
       </div>
 
-      {/* Top Action Header (Centered Minimal Obsidian Toolbar) - Hide if viewing docked note */}
-      {!isDockedNoteTop && (
+      {/* Top Action Header (Centered Minimal Obsidian Toolbar) - Hide if viewing docked pane */}
+      {!isDockedTop && (
         <div className="h-9 px-2 flex items-center justify-center gap-1.5 text-[var(--flint-text-muted)]">
           <button
             onClick={handleCreateNote}
@@ -570,7 +571,7 @@ export const LeftSidebar: React.FC = React.memo(() => {
       )}
 
       {/* Inline Search Input - Only shown in search view */}
-      {activeLeftView === 'search' && !isDockedNoteTop && (
+      {activeLeftView === 'search' && !isDockedTop && (
         <div className="px-2 pb-2">
           <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--flint-bg-input)] border border-[var(--flint-border-base)] focus-within:border-[var(--flint-accent)]">
             <Search01Icon size={13} className="text-[var(--flint-text-muted)] shrink-0" />
@@ -594,7 +595,7 @@ export const LeftSidebar: React.FC = React.memo(() => {
         onContextMenu={handleRootContextMenu}
         className="min-h-0 overflow-y-auto px-2 py-1 custom-scrollbar flex flex-col"
       >
-        {isDockedNoteTop ? (
+        {isDockedTop ? (
           <SidebarDockPane zone="left-top" />
         ) : activeCustomTab ? (
           activeCustomTab.render(app)

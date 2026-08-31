@@ -26,10 +26,15 @@ export const RightSidebar: React.FC = React.memo(() => {
   );
   const hasBottomSplit = bottomDockItems.length > 0;
 
-  const isDockedNoteTop = useMemo(() => {
+  const isDockedTop = useMemo(() => {
     return (
       (typeof activeRightTab === 'string' && activeRightTab.startsWith('doc:')) ||
-      dockItems.some((it) => it.id === activeRightTab && it.zone === 'right-top' && it.type === 'document')
+      dockItems.some(
+        (it) =>
+          (it.id === activeRightTab || it.viewType === activeRightTab) &&
+          it.zone === 'right-top' &&
+          it.enabled
+      )
     );
   }, [activeRightTab, dockItems]);
 
@@ -139,7 +144,7 @@ export const RightSidebar: React.FC = React.memo(() => {
         style={hasBottomSplit ? { flex: splitRatioRight } : { flex: 1 }}
         className="min-h-0 flex flex-col overflow-hidden"
       >
-        {isDockedNoteTop ? (
+        {isDockedTop ? (
           <SidebarDockPane zone="right-top" />
         ) : currentTab ? (
           currentTab.render(app)

@@ -216,6 +216,42 @@ const WindowHeaderTopPaneTabs: React.FC<WindowHeaderTopPaneTabsProps> = React.me
       [tabs, paneId, isOnly, closeTabInPane, splitPane, closePane, documents, vaultPath, showToast, showContextMenu]
     );
 
+    const handleBarContextMenu = useCallback(
+      (e: React.MouseEvent) => {
+        if (e.target !== e.currentTarget && (e.target as HTMLElement).closest('[data-tooltip]')) {
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+
+        const items: ContextMenuItem[] = [
+          {
+            id: 'new-tab',
+            title: 'New tab',
+            onClick: () => {
+              setFocusedPane(paneId);
+              openEmptyTabInPane(paneId);
+            },
+          },
+        ];
+
+        if (!isOnly) {
+          items.push({ type: 'separator' });
+          items.push({
+            id: 'close-pane',
+            title: 'Close split pane',
+            isDanger: true,
+            onClick: () => {
+              closePane(paneId);
+            },
+          });
+        }
+
+        showContextMenu(e, items);
+      },
+      [paneId, isOnly, openEmptyTabInPane, setFocusedPane, closePane, showContextMenu]
+    );
+
     const widthStyle = useMemo(() => {
       if (isOnly) {
         return { flex: 1 };
@@ -234,6 +270,7 @@ const WindowHeaderTopPaneTabs: React.FC<WindowHeaderTopPaneTabsProps> = React.me
       <div
         data-pane-id={paneId}
         data-no-drag="true"
+        onContextMenu={handleBarContextMenu}
         style={
           {
             WebkitAppRegion: 'no-drag',
@@ -576,14 +613,12 @@ export const WindowHeader: React.FC = React.memo(() => {
         },
       ];
 
-      if (item.type === 'document' && item.documentId) {
-        menuItems.push({
-          id: 'open-center',
-          title: 'Open in editor pane',
-          onClick: () => {
-            openTabInPane(focusedPaneId || 'main', item.documentId!);
-          },
-        });
+      const isDoc =
+        (item.type === 'document' || item.id.startsWith('doc:')) &&
+        item.documentId &&
+        !item.documentId.startsWith('__');
+
+      if (isDoc) {
         menuItems.push({
           id: 'remove-dock',
           title: 'Remove from sidebar',
@@ -816,6 +851,100 @@ export const WindowHeader: React.FC = React.memo(() => {
     [tabDecorators, documents, getTabDisplayTitle]
   );
 
+  const renderDockIcon = useCallback(
+    (item: DockItem) => {
+      if (item.id === 'files') {
+        return <Folder01Icon size={15} />;
+      }
+      if (item.id === 'search') {
+        return <Search01Icon size={15} />;
+      }
+
+      const isDoc =
+        (item.type === 'document' || item.id.startsWith('doc:')) &&
+        item.documentId &&
+        !item.documentId.startsWith('__');
+
+      if (isDoc) {
+        return <StickyNote02Icon size={14} />;
+      }
+
+      // 1. Check sidebar tabs across both sides
+      const allSidebarTabs = [...leftTabs, ...rightTabs];
+      const extTab = allSidebarTabs.find(
+        (t) =>
+          t.id === item.id ||
+          t.id === item.viewType ||
+          t.id.endsWith(`:${item.id}`) ||
+          (item.id.includes(':') && t.id === item.id.split(':')[1])
+      );
+      if (extTab?.icon) {
+        if (React.isValidElement(extTab.icon)) {
+          return React.cloneElement(extTab.icon as React.ReactElement<any>, {
+            size: 14,
+          });
+        }
+        return extTab.icon;
+      }
+
+      // 2. Check registered workspace views (Graph, Canvas, Tasks, Marketplace, etc.)
+      const viewType =
+        item.viewType ||
+        (item.id.startsWith('view:') ? item.id.slice(5) : item.id);
+
+      if (viewType && viewType !== 'document') {
+        const pluginState = app.plugins.getViewPluginState(viewType);
+        const regView = pluginState.state === 'active' ? pluginState.view : app.views.getView(viewType);
+        if (regView?.icon) {
+          if (React.isValidElement(regView.icon)) {
+            return React.cloneElement(regView.icon as React.ReactElement<any>, {
+              size: 14,
+            });
+          }
+          return regView.icon;
+        }
+        if (viewType === 'graph') return <GitForkIcon size={14} />;
+        if (viewType === 'canvas') return <Layout01Icon size={14} />;
+      }
+
+      return <Folder01Icon size={14} />;
+    },
+    [leftTabs, rightTabs, app.views, app.plugins]
+  );
+
+  const getDockItemTitle = useCallback(
+    (item: DockItem) => {
+      if (item.id === 'files') return 'Files & folders';
+      if (item.id === 'search') return 'Search';
+      if (item.title && item.title !== 'Tab') return item.title;
+
+      const allSidebarTabs = [...leftTabs, ...rightTabs];
+      const extTab = allSidebarTabs.find(
+        (t) =>
+          t.id === item.id ||
+          t.id === item.viewType ||
+          t.id.endsWith(`:${item.id}`) ||
+          (item.id.includes(':') && t.id === item.id.split(':')[1])
+      );
+      if (extTab?.title) return extTab.title;
+
+      const viewType =
+        item.viewType ||
+        (item.id.startsWith('view:') ? item.id.slice(5) : item.id);
+      if (viewType && viewType !== 'document') {
+        const regView = app.views.getView(viewType);
+        if (regView?.title) return regView.title;
+        if (viewType === 'graph') return 'Graph view';
+        if (viewType === 'canvas') return 'Canvas';
+        if (viewType === 'tasks') return 'Tasks';
+        return viewType.charAt(0).toUpperCase() + viewType.slice(1);
+      }
+
+      return item.title || item.id;
+    },
+    [leftTabs, rightTabs, app.views]
+  );
+
   return (
     <header
       data-flint-header="true"
@@ -852,26 +981,13 @@ export const WindowHeader: React.FC = React.memo(() => {
           className="h-full flex items-center gap-0.5 px-2 shrink-0 overflow-hidden relative"
         >
           {leftTopDockItems.map((item, index) => {
-            const extTab = leftTabs.find((t) => t.id === item.id || t.id === item.viewType);
-            const icon =
-              item.id === 'files' ? (
-                <Folder01Icon size={15} />
-              ) : item.id === 'search' ? (
-                <Search01Icon size={15} />
-              ) : item.type === 'document' ? (
-                <StickyNote02Icon size={14} />
-              ) : (
-                extTab?.icon || <Folder01Icon size={14} />
-              );
+            const icon = renderDockIcon(item);
             const isActive =
               (item.id === 'files' && activeLeftView === 'files') ||
               (item.id === 'search' && activeLeftView === 'search') ||
               activeLeftView === item.id ||
               activeLeftView === item.viewType;
-            const itemTitle =
-              item.title ||
-              extTab?.title ||
-              (item.id === 'files' ? 'Files & folders' : item.id === 'search' ? 'Search' : item.id);
+            const itemTitle = getDockItemTitle(item);
 
             return (
               <button
@@ -976,17 +1092,12 @@ export const WindowHeader: React.FC = React.memo(() => {
               const extTab = rightTabs.find(
                 (t) => t.id === item.id || t.id.endsWith(`:${item.id}`) || t.id === item.viewType
               );
-              const icon =
-                item.type === 'document' ? (
-                  <StickyNote02Icon size={14} />
-                ) : (
-                  extTab?.icon || <Folder01Icon size={14} />
-                );
+              const icon = renderDockIcon(item);
               const isActive =
                 activeRightTab === item.id ||
                 activeRightTab === tabKey ||
                 (extTab && (activeRightTab === extTab.id || extTab.id.endsWith(`:${activeRightTab}`)));
-              const itemTitle = item.title || extTab?.title || item.id;
+              const itemTitle = getDockItemTitle(item);
 
               return (
                 <button

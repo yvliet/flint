@@ -49,6 +49,12 @@ export interface PersistedTabsState {
   layoutTree?: LayoutNode;
   panes?: Record<string, PaneModel>;
   focusedPaneId?: string;
+  isLeftSidebarOpen?: boolean;
+  isRightSidebarOpen?: boolean;
+  activeLeftView?: LeftNavView;
+  activeRightTab?: SidebarTab;
+  leftSidebarWidth?: number;
+  rightSidebarWidth?: number;
 }
 
 export interface NavigationHistoryItem {
@@ -102,6 +108,12 @@ export function saveTabsSession(vaultPath?: string) {
     layoutTree: state.layoutTree,
     panes: state.panes,
     focusedPaneId: state.focusedPaneId,
+    isLeftSidebarOpen: state.isLeftSidebarOpen,
+    isRightSidebarOpen: state.isRightSidebarOpen,
+    activeLeftView: state.activeLeftView,
+    activeRightTab: state.activeRightTab,
+    leftSidebarWidth: state.leftSidebarWidth,
+    rightSidebarWidth: state.rightSidebarWidth,
   };
 
   try {
@@ -396,26 +408,50 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   activeLeftView: 'files',
-  setActiveLeftView: (view) => set({ activeLeftView: view, isLeftSidebarOpen: true }),
+  setActiveLeftView: (view) => {
+    set({ activeLeftView: view, isLeftSidebarOpen: true });
+    saveTabsSession(get().vaultPath);
+  },
   isLeftSidebarOpen: true,
-  setIsLeftSidebarOpen: (open) =>
+  setIsLeftSidebarOpen: (open) => {
     set((state) => ({
       isLeftSidebarOpen: typeof open === 'function' ? open(state.isLeftSidebarOpen) : open,
-    })),
-  toggleLeftSidebar: () => set((state) => ({ isLeftSidebarOpen: !state.isLeftSidebarOpen })),
+    }));
+    saveTabsSession(get().vaultPath);
+  },
+  toggleLeftSidebar: () => {
+    set((state) => ({ isLeftSidebarOpen: !state.isLeftSidebarOpen }));
+    saveTabsSession(get().vaultPath);
+  },
   leftSidebarWidth: 260,
-  setLeftSidebarWidth: (width) => set({ leftSidebarWidth: Math.max(200, Math.min(width, 450)) }),
+  setLeftSidebarWidth: (width) => {
+    const clamped = Math.max(200, Math.min(width, 450));
+    set({ leftSidebarWidth: clamped });
+    saveTabsSession(get().vaultPath);
+  },
 
   activeRightTab: 'outline',
-  setActiveRightTab: (tab) => set({ activeRightTab: tab, isRightSidebarOpen: true }),
+  setActiveRightTab: (tab) => {
+    set({ activeRightTab: tab, isRightSidebarOpen: true });
+    saveTabsSession(get().vaultPath);
+  },
   isRightSidebarOpen: true,
-  setIsRightSidebarOpen: (open) =>
+  setIsRightSidebarOpen: (open) => {
     set((state) => ({
       isRightSidebarOpen: typeof open === 'function' ? open(state.isRightSidebarOpen) : open,
-    })),
-  toggleRightSidebar: () => set((state) => ({ isRightSidebarOpen: !state.isRightSidebarOpen })),
+    }));
+    saveTabsSession(get().vaultPath);
+  },
+  toggleRightSidebar: () => {
+    set((state) => ({ isRightSidebarOpen: !state.isRightSidebarOpen }));
+    saveTabsSession(get().vaultPath);
+  },
   rightSidebarWidth: 260,
-  setRightSidebarWidth: (width) => set({ rightSidebarWidth: Math.max(200, Math.min(width, 400)) }),
+  setRightSidebarWidth: (width) => {
+    const clamped = Math.max(200, Math.min(width, 400));
+    set({ rightSidebarWidth: clamped });
+    saveTabsSession(get().vaultPath);
+  },
 
   tabs: [],
   activeTabId: null,
@@ -743,6 +779,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       layoutTree: initialTree,
       panes: initialPanes,
       focusedPaneId: saved.focusedPaneId || (saved.activePane === 'split' ? 'split' : 'main'),
+      ...(saved.isLeftSidebarOpen !== undefined ? { isLeftSidebarOpen: saved.isLeftSidebarOpen } : {}),
+      ...(saved.isRightSidebarOpen !== undefined ? { isRightSidebarOpen: saved.isRightSidebarOpen } : {}),
+      ...(saved.activeLeftView !== undefined ? { activeLeftView: saved.activeLeftView } : {}),
+      ...(saved.activeRightTab !== undefined ? { activeRightTab: saved.activeRightTab } : {}),
+      ...(typeof saved.leftSidebarWidth === 'number' ? { leftSidebarWidth: saved.leftSidebarWidth } : {}),
+      ...(typeof saved.rightSidebarWidth === 'number' ? { rightSidebarWidth: saved.rightSidebarWidth } : {}),
     });
 
     return true;

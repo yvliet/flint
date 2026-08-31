@@ -51,12 +51,19 @@ function loadPersistedState(): {
       const cleanedItems: DockItem[] = Array.isArray(parsed.items)
         ? parsed.items.filter((it: any) => {
             if (!it || !it.id) return false;
-            // Transient or invalid tab items
-            if (it.id.startsWith('tab-') || it.title === 'New tab') {
+            // Transient or blank new tabs
+            if (it.title === 'New tab') {
               return false;
             }
-            // Documents must only remain if enabled
-            if (it.type === 'document' || it.documentId || it.id.startsWith('doc:')) {
+            if (it.id.startsWith('tab-') && (!it.viewType || it.viewType === 'document') && (!it.documentId || it.documentId.startsWith('__'))) {
+              return false;
+            }
+            // Documents must only remain if enabled and have valid documentId
+            const isDoc =
+              (it.type === 'document' || it.id.startsWith('doc:')) &&
+              it.documentId &&
+              !it.documentId.startsWith('__');
+            if (isDoc) {
               return it.enabled !== false;
             }
             return true;
@@ -123,23 +130,44 @@ export const useSidebarDockStore = create<SidebarDockState>((set, get) => ({
 
   dockTab: (tab, zone, insertIndex) => {
     const { items, activeItemByZone } = get();
+
+    // Determine strictly if the tab is a real markdown document in the vault
     const isDoc = !!(
-      (tab.document_id && !tab.document_id.startsWith('__')) ||
-      tab.view_type === 'document' ||
-      !tab.view_type ||
-      tab.view_mode === 'document' ||
-      (tab.title !== 'Search' && tab.title !== 'Files & folders')
+      tab.document_id &&
+      !tab.document_id.startsWith('__') &&
+      (!tab.view_type || tab.view_type === 'document') &&
+      (!tab.view_mode || tab.view_mode === 'document')
     );
-    const existingIndex = items.findIndex((it) => (isDoc ? it.documentId === tab.document_id : it.id === tab.id));
+
+    const resolvedViewType = !isDoc
+      ? tab.view_type ||
+        tab.view_mode ||
+        (tab.document_id?.startsWith('__') ? tab.document_id.replace(/^__/, '').replace(/__$/, '') : undefined)
+      : 'document';
+
+    const newItemId = isDoc
+      ? `doc:${tab.document_id}`
+      : (resolvedViewType || tab.id);
+
+    const existingIndex = items.findIndex((it) =>
+      isDoc
+        ? it.documentId === tab.document_id || it.id === newItemId
+        : it.id === newItemId || (resolvedViewType && it.viewType === resolvedViewType) || it.id === tab.id
+    );
 
     let updatedItems = [...items];
-    const newItemId = isDoc ? `doc:${tab.document_id || tab.id}` : tab.id;
 
     if (existingIndex !== -1) {
       // Item already exists, move to target zone
       const [existing] = updatedItems.splice(existingIndex, 1);
       existing.zone = zone;
       existing.enabled = true;
+      if (tab.title && (!existing.title || existing.title === 'Tab')) {
+        existing.title = tab.title;
+      }
+      if (resolvedViewType && !existing.viewType) {
+        existing.viewType = resolvedViewType;
+      }
       
       const zoneItems = updatedItems.filter((it) => it.zone === zone).sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
       const targetIdx = typeof insertIndex === 'number' ? Math.max(0, Math.min(zoneItems.length, insertIndex)) : zoneItems.length;
@@ -159,14 +187,15 @@ export const useSidebarDockStore = create<SidebarDockState>((set, get) => ({
       const newItem: DockItem = {
         id: newItemId,
         type: isDoc ? 'document' : 'extension',
-        documentId: tab.document_id || tab.id,
-        title: tab.title || (isDoc ? 'Untitled' : 'Tab'),
-        viewType: tab.view_type || tab.view_mode || 'document',
+        documentId: isDoc ? tab.document_id : (tab.document_id?.startsWith('__') ? undefined : tab.document_id),
+        title: tab.title || (isDoc ? 'Untitled' : (resolvedViewType ? resolvedViewType.charAt(0).toUpperCase() + resolvedViewType.slice(1) : 'Tab')),
+        viewType: resolvedViewType || (isDoc ? 'document' : undefined),
         viewMode: tab.view_mode,
         iconType: typeof tab.icon === 'string' ? tab.icon : undefined,
         zone,
         enabled: true,
         order: targetIdx,
+        extensionId: (tab.metadata?.extensionId as string) || (resolvedViewType && resolvedViewType !== 'document' ? resolvedViewType : undefined),
         metadata: tab.metadata,
       };
       zoneItems.splice(targetIdx, 0, newItem);
@@ -195,16 +224,15 @@ export const useSidebarDockStore = create<SidebarDockState>((set, get) => ({
 
     let updatedItems: DockItem[];
     const isDocItem =
-      target.type === 'document' ||
-      !!target.documentId ||
-      target.id.startsWith('doc:') ||
-      target.id.startsWith('tab-');
+      (target.type === 'document' || target.id.startsWith('doc:')) &&
+      target.documentId &&
+      !target.documentId.startsWith('__');
 
     if (isDocItem) {
       // User documents are removed completely
       updatedItems = items.filter((it) => it.id !== itemId);
     } else {
-      // Extensions are disabled rather than completely deleted
+      // Extensions and views are disabled rather than completely deleted
       updatedItems = items.map((it) => (it.id === itemId ? { ...it, enabled: false } : it));
     }
 
@@ -224,10 +252,9 @@ export const useSidebarDockStore = create<SidebarDockState>((set, get) => ({
     if (!target) return;
 
     const isDocItem =
-      target.type === 'document' ||
-      !!target.documentId ||
-      target.id.startsWith('doc:') ||
-      target.id.startsWith('tab-');
+      (target.type === 'document' || target.id.startsWith('doc:')) &&
+      target.documentId &&
+      !target.documentId.startsWith('__');
 
     if (isDocItem && (enabled === false || (enabled === undefined && target.enabled))) {
       get().undockItem(itemId);

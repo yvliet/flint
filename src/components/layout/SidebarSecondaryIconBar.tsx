@@ -1,7 +1,17 @@
 import React, { useCallback } from 'react';
 import { useSidebarDockStore, DockZone, DockItem } from '@/store/sidebarDockStore';
-import { useSidebarTabs } from '@/core/app/AppContext';
-import { StickyNote02Icon, Cancel01Icon, Folder01Icon, Search01Icon } from '@/components/common/Icons';
+import { useFlintApp, useSidebarTabs, useViews } from '@/core/app/AppContext';
+import {
+  StickyNote02Icon,
+  Cancel01Icon,
+  Folder01Icon,
+  Search01Icon,
+  GitForkIcon,
+  Layout01Icon,
+  Store01Icon,
+  CheckmarkSquare02Icon,
+  Brain02Icon,
+} from '@/components/common/Icons';
 
 import { useAppContextMenu, ContextMenuItem } from '@/components/common/ContextMenu';
 import { useWorkspaceStore } from '@/store/workspaceStore';
@@ -12,6 +22,8 @@ interface SidebarSecondaryIconBarProps {
 }
 
 export const SidebarSecondaryIconBar: React.FC<SidebarSecondaryIconBarProps> = React.memo(({ zone }) => {
+  const app = useFlintApp();
+  useViews();
   const items = useSidebarDockStore((s) => s.items);
   const activeItemId = useSidebarDockStore((s) => s.activeItemByZone[zone]);
   const setActiveItemInZone = useSidebarDockStore((s) => s.setActiveItemInZone);
@@ -23,13 +35,13 @@ export const SidebarSecondaryIconBar: React.FC<SidebarSecondaryIconBarProps> = R
   const { showContextMenu } = useAppContextMenu();
 
   const side = zone.startsWith('left') ? 'left' : 'right';
-  const sidebarTabs = useSidebarTabs(side);
+  const leftTabs = useSidebarTabs('left');
+  const rightTabs = useSidebarTabs('right');
+  const sidebarTabs = side === 'left' ? leftTabs : rightTabs;
 
   const zoneItems = items
     .filter((it) => it.zone === zone && it.enabled)
     .sort((a, b) => (a.order ?? 50) - (b.order ?? 50));
-
-  const allItemsInSide = items.filter((it) => it.zone.startsWith(side));
 
   const dockReorder = useDockReorder({
     zone,
@@ -38,16 +50,64 @@ export const SidebarSecondaryIconBar: React.FC<SidebarSecondaryIconBarProps> = R
   });
 
   const renderIcon = (item: DockItem) => {
-    if (item.type === 'document') {
+    if (item.id === 'files') {
+      return <Folder01Icon size={15} />;
+    }
+    if (item.id === 'search') {
+      return <Search01Icon size={15} />;
+    }
+
+    const isDoc =
+      (item.type === 'document' || item.id.startsWith('doc:')) &&
+      item.documentId &&
+      !item.documentId.startsWith('__');
+
+    if (isDoc) {
       return <StickyNote02Icon size={14} />;
     }
-    const extTab = sidebarTabs.find((t) => t.id === item.id || t.id === item.viewType);
-    if (extTab?.icon && React.isValidElement(extTab.icon)) {
-      return React.cloneElement(extTab.icon as React.ReactElement<any>, {
-        size: 15,
-      });
+
+    // 1. Check sidebar tabs across both sides
+    const allSidebarTabs = [...leftTabs, ...rightTabs];
+    const extTab = allSidebarTabs.find(
+      (t) =>
+        t.id === item.id ||
+        t.id === item.viewType ||
+        t.id.endsWith(`:${item.id}`) ||
+        (item.id.includes(':') && t.id === item.id.split(':')[1])
+    );
+    if (extTab?.icon) {
+      if (React.isValidElement(extTab.icon)) {
+        return React.cloneElement(extTab.icon as React.ReactElement<any>, {
+          size: 15,
+        });
+      }
+      return extTab.icon;
     }
-    return extTab?.icon || <Folder01Icon size={15} />;
+
+    // 2. Check registered workspace views (Graph, Canvas, Tasks, Marketplace, etc.)
+    const viewType =
+      item.viewType ||
+      (item.id.startsWith('view:') ? item.id.slice(5) : item.id);
+
+    if (viewType && viewType !== 'document') {
+      const pluginState = app.plugins.getViewPluginState(viewType);
+      const regView = pluginState.state === 'active' ? pluginState.view : app.views.getView(viewType);
+      if (regView?.icon) {
+        if (React.isValidElement(regView.icon)) {
+          return React.cloneElement(regView.icon as React.ReactElement<any>, {
+            size: 15,
+          });
+        }
+        return regView.icon;
+      }
+      if (viewType === 'graph') return <GitForkIcon size={15} />;
+      if (viewType === 'canvas') return <Layout01Icon size={15} />;
+      if (viewType === 'marketplace') return <Store01Icon size={15} />;
+      if (viewType === 'tasks') return <CheckmarkSquare02Icon size={15} />;
+      if (viewType === 'flashcards') return <Brain02Icon size={15} />;
+    }
+
+    return <Folder01Icon size={15} />;
   };
 
   const getSidebarExtensionList = useCallback(() => {
@@ -55,16 +115,16 @@ export const SidebarSecondaryIconBar: React.FC<SidebarSecondaryIconBarProps> = R
     if (side === 'left') {
       list.push({ id: 'files', title: 'Files & folders', icon: <Folder01Icon size={14} /> });
       list.push({ id: 'search', title: 'Search', icon: <Search01Icon size={14} /> });
-      sidebarTabs.forEach((t) => {
+      leftTabs.forEach((t) => {
         list.push({ id: t.id, title: t.title, icon: t.icon || <Folder01Icon size={14} /> });
       });
     } else {
-      sidebarTabs.forEach((t) => {
+      rightTabs.forEach((t) => {
         list.push({ id: t.id, title: t.title, icon: t.icon || <Folder01Icon size={14} /> });
       });
     }
     return list;
-  }, [side, sidebarTabs]);
+  }, [side, leftTabs, rightTabs]);
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, item: DockItem) => {
@@ -81,14 +141,12 @@ export const SidebarSecondaryIconBar: React.FC<SidebarSecondaryIconBarProps> = R
         },
       ];
 
-      if (item.type === 'document' && item.documentId) {
-        menuItems.push({
-          id: 'open-in-center',
-          title: 'Open in editor pane',
-          onClick: () => {
-            openTabInPane(focusedPaneId || 'main', item.documentId!);
-          },
-        });
+      const isDoc =
+        (item.type === 'document' || item.id.startsWith('doc:')) &&
+        item.documentId &&
+        !item.documentId.startsWith('__');
+
+      if (isDoc) {
         menuItems.push({
           id: 'remove-dock',
           title: 'Remove from sidebar',
@@ -139,9 +197,23 @@ export const SidebarSecondaryIconBar: React.FC<SidebarSecondaryIconBarProps> = R
         });
       });
 
+      menuItems.push({
+        id: 'sep-collapse',
+        type: 'separator',
+      });
+      menuItems.push({
+        id: 'close-bottom-split',
+        title: 'Close bottom split',
+        isDanger: true,
+        onClick: () => {
+          const targetTopZone: DockZone = side === 'left' ? 'left-top' : 'right-top';
+          zoneItems.forEach((it) => moveItemToZone(it.id, targetTopZone));
+        },
+      });
+
       showContextMenu(e, menuItems);
     },
-    [side, zone, moveItemToZone, openTabInPane, focusedPaneId, undockItem, toggleItemEnabled, getSidebarExtensionList, items, showContextMenu]
+    [side, zone, zoneItems, moveItemToZone, openTabInPane, focusedPaneId, undockItem, toggleItemEnabled, getSidebarExtensionList, items, showContextMenu]
   );
 
   const handleBarContextMenu = useCallback(
@@ -152,6 +224,19 @@ export const SidebarSecondaryIconBar: React.FC<SidebarSecondaryIconBarProps> = R
       const extList = getSidebarExtensionList();
 
       const menuItems: ContextMenuItem[] = [
+        {
+          id: 'close-bottom-split',
+          title: 'Close bottom split',
+          isDanger: true,
+          onClick: () => {
+            const targetTopZone: DockZone = side === 'left' ? 'left-top' : 'right-top';
+            zoneItems.forEach((it) => moveItemToZone(it.id, targetTopZone));
+          },
+        },
+        {
+          id: 'sep-header',
+          type: 'separator',
+        },
         {
           id: 'tabs-header',
           title: `${side === 'left' ? 'Left' : 'Right'} sidebar tabs`,
@@ -187,13 +272,10 @@ export const SidebarSecondaryIconBar: React.FC<SidebarSecondaryIconBarProps> = R
         }),
       ];
 
-
       showContextMenu(e, menuItems);
     },
-    [side, getSidebarExtensionList, items, toggleItemEnabled, showContextMenu]
+    [side, zone, zoneItems, moveItemToZone, getSidebarExtensionList, items, toggleItemEnabled, showContextMenu]
   );
-
-
 
   if (zoneItems.length === 0) return null;
 
@@ -212,7 +294,6 @@ export const SidebarSecondaryIconBar: React.FC<SidebarSecondaryIconBarProps> = R
         ref={dockReorder.containerRef}
         className="flex items-center gap-0.5 min-w-0 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden relative"
       >
-
         {zoneItems.map((item, index) => {
           const isActive = activeItemId === item.id;
           return (
@@ -246,18 +327,6 @@ export const SidebarSecondaryIconBar: React.FC<SidebarSecondaryIconBarProps> = R
           />
         )}
       </div>
-
-      <button
-        onClick={() => {
-          // Move all bottom items to top zone
-          const targetTopZone: DockZone = side === 'left' ? 'left-top' : 'right-top';
-          zoneItems.forEach((it) => moveItemToZone(it.id, targetTopZone));
-        }}
-        title="Collapse bottom split"
-        className="w-7 h-7 rounded-md flex items-center justify-center text-[var(--flint-text-muted)] hover:text-[var(--flint-text-primary)] hover:bg-[var(--flint-bg-card-hover)] transition-colors cursor-pointer shrink-0"
-      >
-        <Cancel01Icon size={13} />
-      </button>
     </div>
   );
 });

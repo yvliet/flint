@@ -2,6 +2,10 @@ export const STICKY_NOTE_02_SVG = `<svg width="15" height="15" viewBox="0 0 24 2
 
 export const FOLDER_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dcdcdc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`;
 
+export const GIT_FORK_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dcdcdc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9v1a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9"/><path d="M12 12v3"/></svg>`;
+
+export const CANVAS_LAYOUT_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dcdcdc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>`;
+
 class DragTooltipManager {
   private el: HTMLElement | null = null;
   private titleEl: HTMLElement | null = null;
@@ -91,14 +95,14 @@ class DragTooltipManager {
       this.subtitleEl.style.display = 'none';
     }
     this.iconEl.innerHTML = iconSvg;
-    this.el.style.transform = `translate3d(${x + 12}px, ${y + 12}px, 0)`;
+    this.el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
     this.el.style.display = 'flex';
   }
 
   updatePosition(x: number, y: number) {
     if (!this.el || this.el.style.display === 'none') return;
     if (x === 0 && y === 0) return;
-    this.el.style.transform = `translate3d(${x + 12}px, ${y + 12}px, 0)`;
+    this.el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
   }
 
   updateSubtitle(subtitle: string | null) {

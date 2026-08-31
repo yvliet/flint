@@ -1,5 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { dragTooltipManager, STICKY_NOTE_02_SVG, FOLDER_SVG } from '@/lib/dragTooltip';
+import {
+  dragTooltipManager,
+  STICKY_NOTE_02_SVG,
+  FOLDER_SVG,
+  GIT_FORK_SVG,
+  CANVAS_LAYOUT_SVG,
+} from '@/lib/dragTooltip';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useSidebarDockStore, DockZone } from '@/store/sidebarDockStore';
 
@@ -53,6 +59,41 @@ const dockZoneRegistries = new Map<DockZone, DockZoneRegistryEntry>();
 const dragListeners = new Set<(state: ActiveTabDrag | null) => void>();
 let currentGlobalDrag: ActiveTabDrag | null = null;
 
+export const SIDEBAR_ONLY_VIEWS = new Set([
+  'files',
+  'file-tree',
+  'file-explorer',
+  'search',
+  'bookmarks',
+  'outline',
+  'tags',
+  'properties',
+  'backlinks',
+]);
+
+export function isItemAllowedInEditorPane(item: any): boolean {
+  if (!item) return true;
+  // Documents / notes are always allowed
+  if (
+    item.type === 'document' ||
+    (typeof item.id === 'string' && item.id.startsWith('doc:')) ||
+    (item.documentId && !item.documentId.startsWith('__'))
+  ) {
+    return true;
+  }
+  const viewType =
+    item.viewType ||
+    (typeof item.id === 'string' && item.id.startsWith('view:')
+      ? item.id.slice(5)
+      : typeof item.id === 'string'
+      ? item.id
+      : '');
+  if (viewType && SIDEBAR_ONLY_VIEWS.has(viewType.toLowerCase())) {
+    return false;
+  }
+  return true;
+}
+
 function broadcastDragState(state: ActiveTabDrag | null) {
   currentGlobalDrag = state;
   dragListeners.forEach((listener) => listener(state));
@@ -72,7 +113,7 @@ export function useActiveTabDrag() {
   return activeDrag;
 }
 
-function computeDragTargets(cursorX: number, cursorY: number): {
+function computeDragTargets(cursorX: number, cursorY: number, draggedItem?: any): {
   targetPaneId: string | null;
   targetDockZone: DockZone | null;
   targetSlotIndex: number;
@@ -187,6 +228,15 @@ function computeDragTargets(cursorX: number, cursorY: number): {
   }
 
   // 3. Check center panes
+  if (draggedItem && !isItemAllowedInEditorPane(draggedItem)) {
+    return {
+      targetPaneId: null,
+      targetDockZone: null,
+      targetSlotIndex: -1,
+      indicatorLeft: null,
+    };
+  }
+
   let targetPane: PaneRegistryEntry | null = null;
   const elements =
     typeof document.elementsFromPoint === 'function'
@@ -324,8 +374,29 @@ function finishGlobalDrag(hasStartedDrag: boolean) {
         const dockItem = useSidebarDockStore
           .getState()
           .items.find((it) => it.id === drag.sourceDockItemId);
-        if (dockItem && dockItem.type === 'document' && dockItem.documentId) {
-          useWorkspaceStore.getState().openTabInPane(drag.targetPaneId, dockItem.documentId, dockItem.title);
+        if (dockItem) {
+          if (!isItemAllowedInEditorPane(dockItem)) {
+            return;
+          }
+          const isDoc =
+            (dockItem.type === 'document' || dockItem.id.startsWith('doc:')) &&
+            dockItem.documentId &&
+            !dockItem.documentId.startsWith('__');
+          if (isDoc && dockItem.documentId) {
+            useWorkspaceStore.getState().openTabInPane(drag.targetPaneId, dockItem.documentId, dockItem.title);
+          } else {
+            const viewType =
+              dockItem.viewType ||
+              (dockItem.id.startsWith('view:') ? dockItem.id.slice(5) : dockItem.id);
+            if (viewType && !SIDEBAR_ONLY_VIEWS.has(viewType.toLowerCase())) {
+              useWorkspaceStore.getState().openCustomTabInPane(drag.targetPaneId, {
+                id: `tab-${viewType}-${Date.now()}`,
+                viewType,
+                title: dockItem.title || viewType,
+                documentId: dockItem.documentId || `__${viewType}__`,
+              });
+            }
+          }
         }
       } else if (drag.sourceType === 'tab' && drag.sourcePaneId) {
         if (drag.sourcePaneId === drag.targetPaneId) {
@@ -429,6 +500,10 @@ export function useTabReorder<T>({
               : (currentItem as any)?.title || 'Tab';
             const iconSvg = getIconSvgRef.current
               ? getIconSvgRef.current(currentItem)
+              : (currentItem as any)?.view_type === 'graph' || (currentItem as any)?.document_id === '__graph__'
+              ? GIT_FORK_SVG
+              : (currentItem as any)?.view_type === 'canvas' || (currentItem as any)?.document_id === '__canvas__'
+              ? CANVAS_LAYOUT_SVG
               : STICKY_NOTE_02_SVG;
 
             dragTooltipManager.show(
@@ -443,9 +518,15 @@ export function useTabReorder<T>({
           }
         }
 
+        const currentItem = itemsRef.current[index];
         dragTooltipManager.updatePosition(moveEvent.clientX, moveEvent.clientY);
 
-        const targets = computeDragTargets(moveEvent.clientX, moveEvent.clientY);
+        const targets = computeDragTargets(moveEvent.clientX, moveEvent.clientY, currentItem);
+        const isInvalidDrop = !targets.targetPaneId && !targets.targetDockZone;
+        const cursorStyle = isInvalidDrop ? 'no-drop' : 'grabbing';
+        targetEl.style = cursorStyle;
+        document.body.style = cursorStyle;
+
         broadcastDragState({
           sourceType: 'tab',
           sourcePaneId: paneId,
@@ -460,6 +541,7 @@ export function useTabReorder<T>({
         window.removeEventListener('pointerup', onPointerUp);
         window.removeEventListener('pointercancel', onPointerUp);
 
+        targetEl.style = '';
         document.body.style = '';
         document.body.style.userSelect = '';
         dragTooltipManager.hide();
@@ -583,10 +665,20 @@ export function useDockReorder<T extends { id: string; title: string }>({
             const title = getDisplayTitleRef.current
               ? getDisplayTitleRef.current(currentItem)
               : (currentItem as any)?.title || 'Item';
+
+            const isDoc =
+              ((currentItem as any)?.type === 'document' || (currentItem as any)?.id?.startsWith('doc:')) &&
+              (currentItem as any)?.documentId &&
+              !(currentItem as any)?.documentId?.startsWith('__');
+
             const iconSvg = getIconSvgRef.current
               ? getIconSvgRef.current(currentItem)
-              : (currentItem as any)?.type === 'document'
+              : isDoc
               ? STICKY_NOTE_02_SVG
+              : (currentItem as any)?.viewType === 'graph' || (currentItem as any)?.id === 'graph'
+              ? GIT_FORK_SVG
+              : (currentItem as any)?.viewType === 'canvas' || (currentItem as any)?.id === 'canvas'
+              ? CANVAS_LAYOUT_SVG
               : FOLDER_SVG;
 
             dragTooltipManager.show(title, null, iconSvg, moveEvent.clientX, moveEvent.clientY);
@@ -595,9 +687,15 @@ export function useDockReorder<T extends { id: string; title: string }>({
           }
         }
 
+        const currentItem = itemsRef.current[index];
         dragTooltipManager.updatePosition(moveEvent.clientX, moveEvent.clientY);
 
-        const targets = computeDragTargets(moveEvent.clientX, moveEvent.clientY);
+        const targets = computeDragTargets(moveEvent.clientX, moveEvent.clientY, currentItem);
+        const isInvalidDrop = !targets.targetPaneId && !targets.targetDockZone;
+        const cursorStyle = isInvalidDrop ? 'no-drop' : 'grabbing';
+        targetEl.style = cursorStyle;
+        document.body.style = cursorStyle;
+
         broadcastDragState({
           sourceType: 'dock',
           sourceDockZone: zone,
@@ -613,6 +711,7 @@ export function useDockReorder<T extends { id: string; title: string }>({
         window.removeEventListener('pointerup', onPointerUp);
         window.removeEventListener('pointercancel', onPointerUp);
 
+        targetEl.style = '';
         document.body.style = '';
         document.body.style.userSelect = '';
         dragTooltipManager.hide();

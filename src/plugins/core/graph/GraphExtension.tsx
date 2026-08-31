@@ -43,9 +43,9 @@ export class GraphExtension extends Extension {
       type: 'graph',
       title: 'Graph View',
       icon: <GitForkIcon size={14} />,
-      render: () => (
-        <React.Suspense fallback={<div className="w-full h-full bg-[#181818]" />}>
-          <LazyGraphView />
+      render: (props) => (
+        <React.Suspense fallback={<div className="w-full h-full bg-transparent" />}>
+          <LazyGraphView isSidebar={(props as any)?.isSidebar} />
         </React.Suspense>
       ),
     });

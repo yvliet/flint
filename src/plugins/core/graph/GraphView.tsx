@@ -147,7 +147,11 @@ function getDeterministicNodePos(docId: string, index = 0): { x: number; y: numb
   };
 }
 
-export const GraphView: React.FC = React.memo(() => {
+export interface GraphViewProps {
+  isSidebar?: boolean;
+}
+
+export const GraphView: React.FC<GraphViewProps> = React.memo(({ isSidebar: propIsSidebar }) => {
   const setMainViewMode = useWorkspaceStore((s) => s.setMainViewMode);
   const openTab = useWorkspaceStore((s) => s.openTab);
   const setActiveDocumentById = useDocumentStore((s) => s.setActiveDocumentById);
@@ -159,6 +163,23 @@ export const GraphView: React.FC = React.memo(() => {
   }, [graphFocusCamera]);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isSidebarDetected, setIsSidebarDetected] = useState(false);
+
+  useEffect(() => {
+    if (propIsSidebar !== undefined) {
+      setIsSidebarDetected(propIsSidebar);
+      return;
+    }
+    if (containerRef.current) {
+      const inSidebar = !!containerRef.current.closest(
+        '[data-sidebar], [data-dock-zone], [data-sidebar-root], [data-sidebar-dock-pane], aside'
+      );
+      setIsSidebarDetected(inSidebar);
+    }
+  }, [propIsSidebar]);
+
+  const isSidebar = propIsSidebar ?? isSidebarDetected;
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [filterText, setFilterText] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -183,8 +204,6 @@ export const GraphView: React.FC = React.memo(() => {
   const [isFloatActive, setIsFloatActive] = useState(false);
   const isFloatActiveRef = useRef(false);
   const floatStartTimeRef = useRef(0);
-  const holdTimerRef = useRef<any>(null);
-  const isHoldingRef = useRef(false);
 
   // Pre-timelapse snapshot of node positions to guarantee 100% exact layout convergence
   const preTimelapseLayoutRef = useRef<Map<string, { x: number; y: number }>>(new Map());
@@ -193,7 +212,6 @@ export const GraphView: React.FC = React.memo(() => {
     return () => {
       if (timelapseTimerRef.current) clearInterval(timelapseTimerRef.current);
       if (timelapseEndTimerRef.current) clearTimeout(timelapseEndTimerRef.current);
-      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
     };
   }, []);
 
@@ -455,12 +473,15 @@ export const GraphView: React.FC = React.memo(() => {
 
   // Toggle Float Mode: ambient zero-gravity hovering motion where nodes move around themselves
   const toggleFloatMode = useCallback(() => {
+    if (isTimelapseActiveRef.current) return;
     setIsFloatActive((prev) => {
       const next = !prev;
       isFloatActiveRef.current = next;
       if (next) {
         floatStartTimeRef.current = performance.now();
         alphaRef.current = Math.max(alphaRef.current, 0.15);
+      } else {
+        alphaRef.current = 0.35;
       }
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current);
@@ -471,105 +492,10 @@ export const GraphView: React.FC = React.memo(() => {
     });
   }, []);
 
-  const handleFitButtonPointerDown = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+  const handleFitToCenter = useCallback(() => {
     if (isTimelapseActiveRef.current && graphFocusCameraRef.current) return;
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {}
-
-    isHoldingRef.current = false;
-    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
-    holdTimerRef.current = setTimeout(() => {
-      isHoldingRef.current = true;
-      floatStartTimeRef.current = performance.now();
-      setIsFloatActive(true);
-      isFloatActiveRef.current = true;
-      alphaRef.current = Math.max(alphaRef.current, 0.15);
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-        animFrameRef.current = null;
-      }
-      startAnimationRef.current();
-    }, 220);
-  }, []);
-
-  const handleFitButtonPointerUp = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
-    try {
-      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      }
-    } catch {}
-
-    if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = null;
-    }
-    if (isHoldingRef.current) {
-      // Releasing after hold -> stop float mode
-      setIsFloatActive(false);
-      isFloatActiveRef.current = false;
-      alphaRef.current = 0.35;
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-        animFrameRef.current = null;
-      }
-      startAnimationRef.current();
-    } else if (!(isTimelapseActiveRef.current && graphFocusCameraRef.current)) {
-      // Quick click -> fit to center
-      handleResetView();
-    }
-    isHoldingRef.current = false;
+    handleResetView();
   }, [handleResetView]);
-
-  const handleFitButtonPointerCancel = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
-    try {
-      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      }
-    } catch {}
-
-    if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = null;
-    }
-    if (isHoldingRef.current) {
-      setIsFloatActive(false);
-      isFloatActiveRef.current = false;
-      alphaRef.current = 0.35;
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-        animFrameRef.current = null;
-      }
-      startAnimationRef.current();
-    }
-    isHoldingRef.current = false;
-  }, []);
-
-  useEffect(() => {
-    const handleGlobalPointerUp = () => {
-      if (holdTimerRef.current) {
-        clearTimeout(holdTimerRef.current);
-        holdTimerRef.current = null;
-      }
-      if (isHoldingRef.current) {
-        setIsFloatActive(false);
-        isFloatActiveRef.current = false;
-        alphaRef.current = 0.35;
-        if (animFrameRef.current) {
-          cancelAnimationFrame(animFrameRef.current);
-          animFrameRef.current = null;
-        }
-        startAnimationRef.current();
-      }
-      isHoldingRef.current = false;
-    };
-    window.addEventListener('pointerup', handleGlobalPointerUp);
-    window.addEventListener('pointercancel', handleGlobalPointerUp);
-    return () => {
-      window.removeEventListener('pointerup', handleGlobalPointerUp);
-      window.removeEventListener('pointercancel', handleGlobalPointerUp);
-    };
-  }, []);
 
   const lastPersistTimeRef = useRef(0);
 
@@ -2732,8 +2658,16 @@ export const GraphView: React.FC = React.memo(() => {
       ref={containerRef}
       data-pinchable="true"
       data-graph-view="true"
-      style={{ touchAction: 'none' }}
-      className="flint-graph-view flint-pinchable relative flex-1 h-full w-full overflow-hidden bg-[#181818] select-none touch-none"
+      data-is-sidebar={isSidebar ? 'true' : undefined}
+      style={{
+        touchAction: 'none',
+        background: isSidebar
+          ? 'var(--flint-bg-sidebar-gradient, var(--flint-bg-sidebar, #151515))'
+          : '#181818',
+      }}
+      className={`flint-graph-view flint-pinchable relative flex-1 h-full w-full overflow-hidden select-none touch-none ${
+        isSidebar ? 'bg-transparent' : 'bg-[#181818]'
+      }`}
     >
       {/* Shared Modular Document Sub-Header */}
       <PageSubHeader
@@ -2741,6 +2675,7 @@ export const GraphView: React.FC = React.memo(() => {
         icon={<GitForkIcon size={13} />}
         document={null}
         hideBar={true}
+        isSidebar={isSidebar}
         showReadingToggle={false}
         showBookmark={false}
         customRightActions={
@@ -2749,17 +2684,22 @@ export const GraphView: React.FC = React.memo(() => {
             <button
               type="button"
               onClick={handleToggleTimelapse}
+              disabled={isFloatActive}
               title={
-                !isTimelapseActive
+                isFloatActive
+                  ? 'Time-lapse (Disabled while float mode is active)'
+                  : !isTimelapseActive
                   ? 'Animate graph (Time-lapse)'
                   : isTimelapsePaused
                   ? 'Resume time-lapse'
                   : 'Pause time-lapse'
               }
-              className={`p-1 rounded transition-colors cursor-pointer ${
-                isTimelapseActive
-                  ? 'text-white bg-[#282828]'
-                  : 'text-[#777] hover:text-[#dcddde] hover:bg-[#222]'
+              className={`p-1 rounded transition-colors ${
+                isFloatActive
+                  ? 'text-[#444] opacity-40 cursor-not-allowed'
+                  : isTimelapseActive
+                  ? 'text-white bg-[#282828] cursor-pointer'
+                  : 'text-[#777] hover:text-[#dcddde] hover:bg-[#222] cursor-pointer'
               }`}
             >
               {isTimelapseActive && !isTimelapsePaused ? (
@@ -2788,49 +2728,47 @@ export const GraphView: React.FC = React.memo(() => {
               <RotateCcwIcon size={14} />
             </button>
 
-            {/* Fit to Center / Hold to Float Button */}
-            <Tooltip
-              content={
-                isFloatActive
-                  ? ''
-                  : isTimelapseActive && graphFocusCamera
-                  ? 'Fit to center (disabled during focus camera time-lapse)'
+            {/* Fit to Center Button */}
+            <button
+              type="button"
+              onClick={handleFitToCenter}
+              disabled={isTimelapseActive && graphFocusCamera}
+              title={
+                isTimelapseActive && graphFocusCamera
+                  ? 'Fit to center (Disabled during focus camera time-lapse)'
                   : 'Fit to center'
               }
-              shortcut={isFloatActive || (isTimelapseActive && graphFocusCamera) ? undefined : 'Hold to float'}
+              className={`p-1 rounded transition-colors ${
+                isTimelapseActive && graphFocusCamera
+                  ? 'text-[#444] opacity-40 cursor-not-allowed'
+                  : 'text-[#777] hover:text-[#dcddde] hover:bg-[#222] cursor-pointer'
+              }`}
             >
-              <button
-                type="button"
-                onPointerDown={handleFitButtonPointerDown}
-                onPointerUp={handleFitButtonPointerUp}
-                onPointerCancel={handleFitButtonPointerCancel}
-                disabled={isTimelapseActive && graphFocusCamera}
-                className={`relative p-1 rounded transition-colors select-none ${
-                  isTimelapseActive && graphFocusCamera
-                    ? 'text-[#444] opacity-40 cursor-not-allowed'
-                    : isFloatActive
-                    ? 'text-white bg-[#282828] cursor-pointer'
-                    : 'text-[#777] hover:text-[#dcddde] hover:bg-[#222] cursor-pointer'
-                }`}
-              >
-                <div className="relative flex items-center justify-center w-3.5 h-3.5 overflow-hidden">
-                  <CenterFocusIcon
-                    size={14}
-                    className={`absolute inset-0 transition-all duration-200 transform ${
-                      isFloatActive ? 'opacity-0 scale-50 rotate-90 pointer-events-none' : 'opacity-100 scale-100 rotate-0'
-                    }`}
-                  />
-                  <BubblesIcon
-                    size={14}
-                    className={`absolute inset-0 transition-all duration-200 transform ${
-                      isFloatActive
-                        ? 'opacity-100 scale-100 rotate-0 text-[#dcddde]'
-                        : 'opacity-0 scale-50 -rotate-90 pointer-events-none'
-                    }`}
-                  />
-                </div>
-              </button>
-            </Tooltip>
+              <CenterFocusIcon size={14} />
+            </button>
+
+            {/* Float Button */}
+            <button
+              type="button"
+              onClick={toggleFloatMode}
+              disabled={isTimelapseActive}
+              title={
+                isTimelapseActive
+                  ? 'Float (Disabled during time-lapse)'
+                  : isFloatActive
+                  ? 'Stop float'
+                  : 'Float'
+              }
+              className={`p-1 rounded transition-colors ${
+                isTimelapseActive
+                  ? 'text-[#444] opacity-40 cursor-not-allowed'
+                  : isFloatActive
+                  ? 'text-white bg-[#282828] cursor-pointer'
+                  : 'text-[#777] hover:text-[#dcddde] hover:bg-[#222] cursor-pointer'
+              }`}
+            >
+              <BubblesIcon size={14} />
+            </button>
           </>
         }
         isFindOpen={isSearchOpen}
