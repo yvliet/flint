@@ -231,12 +231,39 @@ export const CanvasView: React.FC = React.memo(() => {
     showToast('Added document to canvas', 'success');
   }, [pan.x, pan.y, zoom, canvasSnapGrid, gridSize, showToast]);
 
-  const handleDeleteNode = useCallback(async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDeleteNode = useCallback(async (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     await deleteCanvasNode(id);
     setNodes((prev) => prev.filter((n) => n.id !== id));
+    if (selectedNodeId === id) setSelectedNodeId(null);
     showToast('Removed card', 'info');
-  }, [showToast]);
+  }, [selectedNodeId, showToast]);
+
+  // Keyboard shortcut to delete selected card (Delete / Backspace when not typing)
+  useEffect(() => {
+    const handleCanvasKeyDown = (e: KeyboardEvent) => {
+      if (!selectedNodeId) return;
+      const target = (e.target || document.activeElement) as HTMLElement | null;
+      const isInput =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        Boolean(target?.isContentEditable);
+      if (isInput) return;
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleDeleteNode(selectedNodeId);
+      } else if (e.key === 'Escape') {
+        setSelectedNodeId(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleCanvasKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleCanvasKeyDown);
+    };
+  }, [selectedNodeId, handleDeleteNode]);
 
   const handleTextChange = useCallback((id: string, newText: string) => {
     setNodes((prev) => {

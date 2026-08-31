@@ -462,9 +462,18 @@ export function useKeyboardShortcuts() {
         Boolean(activeEl?.closest('[contenteditable="true"]')) ||
         Boolean(activeEl?.closest('.ProseMirror')) ||
         Boolean(activeEl?.closest('.tiptap'));
+      const isSidebarFocused = Boolean(target?.closest('[data-sidebar="true"]') || activeEl?.closest('[data-sidebar="true"]'));
+      const isCanvasOrGraph = Boolean(
+        target?.closest('[data-canvas-view="true"]') ||
+        target?.closest('.flint-canvas-view') ||
+        activeEl?.closest('[data-canvas-view="true"]') ||
+        activeEl?.closest('.flint-canvas-view') ||
+        ws.mainViewMode === 'canvas' ||
+        ws.mainViewMode === 'graph'
+      );
 
       // 18. File Action Undo & Redo (Ctrl+Z and Ctrl+Y / Ctrl+Shift+Z)
-      if (!isContentEditor && !isInput) {
+      if (!isContentEditor && !isInput && (!isCanvasOrGraph || isSidebarFocused)) {
         const isUndo =
           isMatch('workspace:undo-file-action', ['Ctrl+Z']) ||
           ((keyLower === 'z' || code === 'KeyZ') && isCtrlOrMeta && !isShift && !isAlt);

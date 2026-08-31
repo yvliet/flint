@@ -232,6 +232,10 @@ export const useFileHistoryStore = create<FileHistoryState>((set, get) => ({
         const titleToRestore = action.oldTitle || action.title;
         if (action.oldTitle && action.newTitle && action.oldTitle !== action.newTitle) {
           await updateDocumentTitle(action.id, action.oldTitle);
+          const { autoUpdateLinks } = useSettingsStore.getState();
+          if (autoUpdateLinks) {
+            await updateInternalLinksAcrossDocuments(action.newTitle, action.oldTitle);
+          }
         }
         await dbMoveDocument(action.id, action.oldParentId);
         const docs = await getAllDocuments();
@@ -245,10 +249,14 @@ export const useFileHistoryStore = create<FileHistoryState>((set, get) => ({
         }
         useWorkspaceStore.getState().showToast(`Restored position of "${titleToRestore}"`, 'success');
       } else if (action.type === 'batch_move') {
+        const { autoUpdateLinks } = useSettingsStore.getState();
         for (const m of action.moves) {
           const titleToRestore = m.oldTitle || m.title;
           if (m.oldTitle && m.newTitle && m.oldTitle !== m.newTitle) {
             await updateDocumentTitle(m.id, m.oldTitle);
+            if (autoUpdateLinks) {
+              await updateInternalLinksAcrossDocuments(m.newTitle, m.oldTitle);
+            }
           }
           await dbMoveDocument(m.id, m.oldParentId);
           if (m.oldTitle && m.newTitle && m.oldTitle !== m.newTitle) {
@@ -337,6 +345,10 @@ export const useFileHistoryStore = create<FileHistoryState>((set, get) => ({
         const titleToApply = action.newTitle || action.title;
         if (action.oldTitle && action.newTitle && action.oldTitle !== action.newTitle) {
           await updateDocumentTitle(action.id, action.newTitle);
+          const { autoUpdateLinks } = useSettingsStore.getState();
+          if (autoUpdateLinks) {
+            await updateInternalLinksAcrossDocuments(action.oldTitle, action.newTitle);
+          }
         }
         await dbMoveDocument(action.id, action.newParentId);
         const docs = await getAllDocuments();
@@ -350,10 +362,14 @@ export const useFileHistoryStore = create<FileHistoryState>((set, get) => ({
         }
         useWorkspaceStore.getState().showToast(`Moved "${titleToApply}"`, 'success');
       } else if (action.type === 'batch_move') {
+        const { autoUpdateLinks } = useSettingsStore.getState();
         for (const m of action.moves) {
           const titleToApply = m.newTitle || m.title;
           if (m.oldTitle && m.newTitle && m.oldTitle !== m.newTitle) {
             await updateDocumentTitle(m.id, m.newTitle);
+            if (autoUpdateLinks) {
+              await updateInternalLinksAcrossDocuments(m.oldTitle, m.newTitle);
+            }
           }
           await dbMoveDocument(m.id, m.newParentId);
           if (m.oldTitle && m.newTitle && m.oldTitle !== m.newTitle) {

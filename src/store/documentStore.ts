@@ -595,9 +595,11 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   },
 
   duplicateNote: async (id: string) => {
+    const activeDocBefore = get().activeDocument?.id || null;
     const copy = await duplicateDocument(id);
     if (copy) {
       set((state) => ({ documents: [copy, ...state.documents] }));
+      useFileHistoryStore.getState().recordCreate(copy, activeDocBefore);
       useWorkspaceStore.getState().setMainViewMode('document');
       await get().setActiveDocumentById(copy.id);
     }

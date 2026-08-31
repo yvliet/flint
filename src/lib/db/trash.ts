@@ -2,6 +2,7 @@ import { dbAdapter } from './adapter';
 import { DocumentItem, TrashItem } from '@/types';
 import { jsonToMarkdown, getDocumentPath } from './documents';
 import { platform } from '@/lib/platform/platformAdapter';
+import { appInstance } from '@/core/app/FlintApp';
 
 // 48 hours in milliseconds = 172,800,000 ms
 export const TRASH_RETENTION_MS = 48 * 60 * 60 * 1000;
@@ -332,6 +333,9 @@ export async function permanentlyDeleteTrashItem(trashOrOriginalId: string): Pro
       } catch (e) {}
     }
     await dbAdapter.execute(`DELETE FROM trash_items WHERE id = ?`, [item.id]);
+    try {
+      appInstance.events.emit('document:deleted', { id: item.original_id });
+    } catch (e) {}
   }
 
   await dbAdapter.persist();
@@ -341,6 +345,7 @@ export async function permanentlyDeleteTrashItem(trashOrOriginalId: string): Pro
  * Empties all items from the Trash
  */
 export async function emptyTrash(): Promise<void> {
+  const allTrash = await dbAdapter.query<TrashItem>(`SELECT original_id FROM trash_items`);
   if (platform.isDesktop()) {
     try {
       await platform.emptyTrashFolder();
@@ -348,4 +353,10 @@ export async function emptyTrash(): Promise<void> {
   }
   await dbAdapter.execute(`DELETE FROM trash_items`);
   await dbAdapter.persist();
+
+  for (const item of allTrash) {
+    try {
+      appInstance.events.emit('document:deleted', { id: item.original_id });
+    } catch (e) {}
+  }
 }
