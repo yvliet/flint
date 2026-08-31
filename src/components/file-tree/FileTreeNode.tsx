@@ -64,7 +64,7 @@ const FileTreeNodeComponent: React.FC<FileTreeNodeProps> = ({
   sortOrder = 'alphabetical',
 }) => {
   const isFolder = !!item.is_folder;
-  const isSelected = useDocumentStore((s) => (isFolder ? s.selectedDocIds.includes(item.id) : false));
+  const isSelected = useDocumentStore((s) => (isFolder ? s.selectedDocIds.length > 1 && s.selectedDocIds.includes(item.id) : s.selectedDocIds.includes(item.id)));
   const isMultiSelected = useDocumentStore((s) => s.selectedDocIds.length > 1 && s.selectedDocIds.includes(item.id));
   const isStoreEditing = useDocumentStore((s) => s.editingDocId === item.id);
   const activeDocId = useDocumentStore((s) => s.activeDocument?.id);
@@ -270,11 +270,13 @@ const FileTreeNodeComponent: React.FC<FileTreeNodeProps> = ({
         return;
       }
 
-      selectSingleDoc(item.id);
-
       if (isFolder) {
         setIsOpen(!isOpen);
+        if (useDocumentStore.getState().selectedDocIds.length <= 1) {
+          useDocumentStore.setState({ selectedDocIds: [] });
+        }
       } else {
+        selectSingleDoc(item.id);
         openTab(item.id, item.title);
       }
     },
