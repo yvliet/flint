@@ -1312,14 +1312,6 @@ ul[data-type="taskList"] li[data-checked="true"] > div {
   opacity: 0.95 !important;
 }
 
-/* Terminal Bottom End Smooth Fade Out (Masked gradient fade for the final line of an indent level) */
-.flint-indent-guides .flint-tab-guide-end::before,
-.tiptap-reading-view.flint-indent-guides .flint-tab-guide-end::before {
-  bottom: -0.75rem;
-  mask-image: linear-gradient(to bottom, #000 0%, #000 40%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 40%, transparent 100%);
-}
-
 .flint-indent-guides ul ul,
 .flint-indent-guides ol ol,
 .flint-indent-guides ul ol,
