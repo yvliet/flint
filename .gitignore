@@ -12,6 +12,10 @@ node_modules
 dist
 dist-ssr
 *.local
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+test-results/
+playwright-report/
 
 # Rust / Tauri build artifacts
 target/
