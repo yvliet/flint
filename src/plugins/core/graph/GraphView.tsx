@@ -480,6 +480,9 @@ export const GraphView: React.FC<GraphViewProps> = React.memo(({ isSidebar: prop
       if (next) {
         floatStartTimeRef.current = performance.now();
         alphaRef.current = Math.max(alphaRef.current, 0.15);
+        if (graphFocusCameraRef.current) {
+          centerGraph(nodesRef.current);
+        }
       } else {
         alphaRef.current = 0.35;
       }
@@ -490,10 +493,10 @@ export const GraphView: React.FC<GraphViewProps> = React.memo(({ isSidebar: prop
       startAnimationRef.current();
       return next;
     });
-  }, []);
+  }, [centerGraph]);
 
   const handleFitToCenter = useCallback(() => {
-    if (isTimelapseActiveRef.current && graphFocusCameraRef.current) return;
+    if ((isTimelapseActiveRef.current || isFloatActiveRef.current) && graphFocusCameraRef.current) return;
     handleResetView();
   }, [handleResetView]);
 
@@ -1288,6 +1291,8 @@ export const GraphView: React.FC<GraphViewProps> = React.memo(({ isSidebar: prop
 
     if (isTimelapseActiveRef.current && !isTimelapsePausedRef.current && graphFocusCameraRef.current) {
       updateTimelapseFocusCamera(timelapseStepRef.current);
+    } else if (isFloatActiveRef.current && graphFocusCameraRef.current && !dragNodeRef.current && !isDraggingRef.current) {
+      centerGraph(nodesRef.current);
     }
 
     // Cooling curve: smooth settling and floaty sleep
@@ -1311,7 +1316,7 @@ export const GraphView: React.FC<GraphViewProps> = React.memo(({ isSidebar: prop
     } else {
       alphaRef.current = Math.max(alphaRef.current, 0.38);
     }
-  }, [persistPositions, updateTimelapseFocusCamera]);
+  }, [persistPositions, updateTimelapseFocusCamera, centerGraph]);
 
   // Render Loop
   const render = useCallback(() => {
@@ -2732,14 +2737,14 @@ export const GraphView: React.FC<GraphViewProps> = React.memo(({ isSidebar: prop
             <button
               type="button"
               onClick={handleFitToCenter}
-              disabled={isTimelapseActive && graphFocusCamera}
+              disabled={(isTimelapseActive || isFloatActive) && graphFocusCamera}
               title={
-                isTimelapseActive && graphFocusCamera
-                  ? 'Fit to center (Disabled during focus camera time-lapse)'
+                (isTimelapseActive || isFloatActive) && graphFocusCamera
+                  ? 'Fit to center (Disabled when focus camera is active)'
                   : 'Fit to center'
               }
               className={`p-1 rounded transition-colors ${
-                isTimelapseActive && graphFocusCamera
+                (isTimelapseActive || isFloatActive) && graphFocusCamera
                   ? 'text-[#444] opacity-40 cursor-not-allowed'
                   : 'text-[#777] hover:text-[#dcddde] hover:bg-[#222] cursor-pointer'
               }`}

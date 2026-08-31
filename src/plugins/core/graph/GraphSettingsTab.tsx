@@ -84,103 +84,49 @@ export const GraphSettingsTab: React.FC = () => {
         )}
       </div>
 
-      {/* SECTION 1: TIME-LAPSE ANIMATION */}
-      <div>
-        <div className="px-4 mb-2.5">
-          <h3 className="text-sm font-semibold text-white">Time-lapse</h3>
+      {/* SECTION 1: ANIMATION & CAMERA (Directly below Graph view header) */}
+      <div className="bg-[#202020] border border-[#2a2a2a] rounded-xl overflow-hidden divide-y divide-[#282828]">
+        {/* Focus Camera (For both Time-lapse and Float) */}
+        <div className="flex items-center justify-between p-4">
+          <div className="flex flex-col pr-4">
+            <span className="text-[13px] font-normal text-[#dcddde]">Focus camera</span>
+            <span className="text-[11px] text-[#777] mt-0.5">
+              Automatically smoothly tracks and centers the viewport during time-lapse playback and float animation.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {timelapseFocusCamera !== DEFAULT_GRAPH_SETTINGS.timelapseFocusCamera && (
+              <button
+                type="button"
+                onClick={() => setTimelapseFocusCamera(DEFAULT_GRAPH_SETTINGS.timelapseFocusCamera)}
+                title="Restore default (Off)"
+                className="p-1 rounded-md text-[#777] hover:text-white hover:bg-[#282828] transition-colors cursor-pointer shrink-0"
+              >
+                <RotateCcwIcon size={13} />
+              </button>
+            )}
+            <ToggleSwitch
+              checked={timelapseFocusCamera}
+              onChange={setTimelapseFocusCamera}
+            />
+          </div>
         </div>
-        <div className="bg-[#202020] border border-[#2a2a2a] rounded-xl overflow-hidden divide-y divide-[#282828]">
-          {/* Timelapse Speed */}
-          <div className="flex flex-col p-4 gap-3">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col pr-4">
-                <span className="text-[13px] font-normal text-[#dcddde]">Node appearance rate</span>
-                <span className="text-[11px] text-[#777] mt-0.5">
-                  How fast each node appears during time-lapse playback ({timelapseSpeed}ms per node).
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {timelapseSpeed !== DEFAULT_GRAPH_SETTINGS.timelapseSpeed && (
-                  <button
-                    type="button"
-                    onClick={() => setTimelapseSpeed(DEFAULT_GRAPH_SETTINGS.timelapseSpeed)}
-                    title="Restore default speed (120ms)"
-                    className="p-1 rounded-md text-[#777] hover:text-white hover:bg-[#282828] transition-colors cursor-pointer shrink-0"
-                  >
-                    <RotateCcwIcon size={13} />
-                  </button>
-                )}
-                <input
-                  type="number"
-                  min={20}
-                  max={2000}
-                  step={10}
-                  value={timelapseSpeed}
-                  onChange={(e) => setTimelapseSpeed(Math.max(20, parseInt(e.target.value) || 20))}
-                  className="w-24 bg-[#181818] border border-[#383838] focus:border-[#555] text-white text-xs rounded-[5px] px-3 py-1.5 outline-none font-mono shadow-[inset_0_1px_2px_rgba(0,0,0,0.35)] transition-colors text-right"
-                />
-              </div>
-            </div>
 
-            {/* Quick Presets */}
-            <div className="flex items-center gap-1.5 flex-wrap pt-1">
-              {SPEED_PRESETS.map((preset) => (
-                <button
-                  key={preset.value}
-                  type="button"
-                  onClick={() => setTimelapseSpeed(preset.value)}
-                  className={`px-2.5 py-1 text-[11px] rounded-[5px] border transition-all cursor-pointer ${
-                    timelapseSpeed === preset.value
-                      ? 'bg-[var(--flint-accent)] border-transparent text-white font-medium shadow-xs'
-                      : 'bg-[#181818] border-[#333] text-[#888] hover:text-white hover:border-[#444]'
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Focus Camera */}
-          <div className="flex items-center justify-between p-4">
+        {/* Node appearance rate */}
+        <div className="flex flex-col p-4 gap-3">
+          <div className="flex items-center justify-between">
             <div className="flex flex-col pr-4">
-              <span className="text-[13px] font-normal text-[#dcddde]">Focus camera</span>
+              <span className="text-[13px] font-normal text-[#dcddde]">Node appearance rate</span>
               <span className="text-[11px] text-[#777] mt-0.5">
-                Automatically smoothly tracks and centers the viewport around newly appearing nodes.
+                How fast each node appears during time-lapse playback ({timelapseSpeed}ms per node).
               </span>
             </div>
             <div className="flex items-center gap-2">
-              {timelapseFocusCamera !== DEFAULT_GRAPH_SETTINGS.timelapseFocusCamera && (
+              {timelapseSpeed !== DEFAULT_GRAPH_SETTINGS.timelapseSpeed && (
                 <button
                   type="button"
-                  onClick={() => setTimelapseFocusCamera(DEFAULT_GRAPH_SETTINGS.timelapseFocusCamera)}
-                  title="Restore default (Off)"
-                  className="p-1 rounded-md text-[#777] hover:text-white hover:bg-[#282828] transition-colors cursor-pointer shrink-0"
-                >
-                  <RotateCcwIcon size={13} />
-                </button>
-              )}
-              <ToggleSwitch
-                checked={timelapseFocusCamera}
-                onChange={setTimelapseFocusCamera}
-              />
-            </div>
-          </div>
-
-          {/* Node Pop Scale */}
-          <div className="flex items-center justify-between p-4">
-            <div className="flex flex-col pr-4">
-              <span className="text-[13px] font-normal text-[#dcddde]">Node pop animation scale</span>
-              <span className="text-[11px] text-[#777] mt-0.5">
-                Size multiplier for the pop effect when nodes materialize ({timelapseNodePopScale.toFixed(1)}x).
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {timelapseNodePopScale !== DEFAULT_GRAPH_SETTINGS.timelapseNodePopScale && (
-                <button
-                  type="button"
-                  onClick={() => setTimelapseNodePopScale(DEFAULT_GRAPH_SETTINGS.timelapseNodePopScale)}
-                  title="Restore default (1.6x)"
+                  onClick={() => setTimelapseSpeed(DEFAULT_GRAPH_SETTINGS.timelapseSpeed)}
+                  title="Restore default speed (120ms)"
                   className="p-1 rounded-md text-[#777] hover:text-white hover:bg-[#282828] transition-colors cursor-pointer shrink-0"
                 >
                   <RotateCcwIcon size={13} />
@@ -188,14 +134,63 @@ export const GraphSettingsTab: React.FC = () => {
               )}
               <input
                 type="number"
-                min={1.0}
-                max={3.0}
-                step={0.1}
-                value={timelapseNodePopScale}
-                onChange={(e) => setTimelapseNodePopScale(parseFloat(e.target.value) || 1.0)}
+                min={20}
+                max={2000}
+                step={10}
+                value={timelapseSpeed}
+                onChange={(e) => setTimelapseSpeed(Math.max(20, parseInt(e.target.value) || 20))}
                 className="w-24 bg-[#181818] border border-[#383838] focus:border-[#555] text-white text-xs rounded-[5px] px-3 py-1.5 outline-none font-mono shadow-[inset_0_1px_2px_rgba(0,0,0,0.35)] transition-colors text-right"
               />
             </div>
+          </div>
+
+          {/* Quick Presets */}
+          <div className="flex items-center gap-1.5 flex-wrap pt-1">
+            {SPEED_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                type="button"
+                onClick={() => setTimelapseSpeed(preset.value)}
+                className={`px-2.5 py-1 text-[11px] rounded-[5px] border transition-all cursor-pointer ${
+                  timelapseSpeed === preset.value
+                    ? 'bg-[var(--flint-accent)] border-transparent text-white font-medium shadow-xs'
+                    : 'bg-[#181818] border-[#333] text-[#888] hover:text-white hover:border-[#444]'
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Node Pop Scale */}
+        <div className="flex items-center justify-between p-4">
+          <div className="flex flex-col pr-4">
+            <span className="text-[13px] font-normal text-[#dcddde]">Node pop animation scale</span>
+            <span className="text-[11px] text-[#777] mt-0.5">
+              Size multiplier for the pop effect when nodes materialize ({timelapseNodePopScale.toFixed(1)}x).
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {timelapseNodePopScale !== DEFAULT_GRAPH_SETTINGS.timelapseNodePopScale && (
+              <button
+                type="button"
+                onClick={() => setTimelapseNodePopScale(DEFAULT_GRAPH_SETTINGS.timelapseNodePopScale)}
+                title="Restore default (1.6x)"
+                className="p-1 rounded-md text-[#777] hover:text-white hover:bg-[#282828] transition-colors cursor-pointer shrink-0"
+              >
+                <RotateCcwIcon size={13} />
+              </button>
+            )}
+            <input
+              type="number"
+              min={1.0}
+              max={3.0}
+              step={0.1}
+              value={timelapseNodePopScale}
+              onChange={(e) => setTimelapseNodePopScale(parseFloat(e.target.value) || 1.0)}
+              className="w-24 bg-[#181818] border border-[#383838] focus:border-[#555] text-white text-xs rounded-[5px] px-3 py-1.5 outline-none font-mono shadow-[inset_0_1px_2px_rgba(0,0,0,0.35)] transition-colors text-right"
+            />
           </div>
         </div>
       </div>
