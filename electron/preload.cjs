@@ -22,32 +22,54 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('window-maximized-change', listener);
     return () => ipcRenderer.removeListener('window-maximized-change', listener);
   },
-  openVaultWindow: () => ipcRenderer.invoke('open-vault-window'),
-  closeVaultWindow: () => ipcRenderer.invoke('close-vault-window'),
+  // Hearth & Settings window controls
+  openHearthWindow: () => ipcRenderer.invoke('open-hearth-window'),
+  closeHearthWindow: () => ipcRenderer.invoke('close-hearth-window'),
+  openVaultWindow: () => ipcRenderer.invoke('open-hearth-window'),
+  closeVaultWindow: () => ipcRenderer.invoke('close-hearth-window'),
   openSettingsWindow: () => ipcRenderer.invoke('open-settings-window'),
   closeSettingsWindow: () => ipcRenderer.invoke('close-settings-window'),
+
+  // Hearth event subscriptions
+  onHearthChanged: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('hearth-changed', listener);
+    return () => ipcRenderer.removeListener('hearth-changed', listener);
+  },
   onVaultChanged: (callback) => {
     const listener = (event, data) => callback(data);
-    ipcRenderer.on('vault-changed', listener);
-    return () => ipcRenderer.removeListener('vault-changed', listener);
+    ipcRenderer.on('hearth-changed', listener);
+    return () => ipcRenderer.removeListener('hearth-changed', listener);
   },
-  getCurrentVault: () => ipcRenderer.invoke('get-current-vault'),
-  selectVaultFolder: () => ipcRenderer.invoke('select-vault-folder'),
-  selectParentFolder: () => ipcRenderer.invoke('select-parent-folder'),
-  createNewVault: (name, parentPath) => ipcRenderer.invoke('create-new-vault', { name, parentPath }),
-  renameHearth: (targetPath, newName) => ipcRenderer.invoke('rename-hearth', { targetPath, newName }),
-  renameVault: (targetPath, newName) => ipcRenderer.invoke('rename-hearth', { targetPath, newName }),
-  removeRecentVault: (vaultPath) => ipcRenderer.invoke('remove-recent-vault', vaultPath),
-  setCurrentVault: (vaultPath) => ipcRenderer.invoke('set-current-vault', vaultPath),
-  openVaultInExplorer: (vaultPath) => ipcRenderer.invoke('open-vault-in-explorer', vaultPath),
-  saveDatabase: (bytes, customVaultPath) => ipcRenderer.invoke('save-database', { bytes, vaultPath: customVaultPath }),
-  loadDatabase: (customVaultPath) => ipcRenderer.invoke('load-database', customVaultPath),
+  onHearthFilesChanged: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('vault-files-changed', listener);
+    return () => ipcRenderer.removeListener('vault-files-changed', listener);
+  },
   onVaultFilesChanged: (callback) => {
     const listener = () => callback();
     ipcRenderer.on('vault-files-changed', listener);
     return () => ipcRenderer.removeListener('vault-files-changed', listener);
   },
-  scanVaultFiles: (customVaultPath) => ipcRenderer.invoke('scan-vault-files', customVaultPath),
+
+  // Hearth operations
+  getCurrentHearth: () => ipcRenderer.invoke('get-current-hearth'),
+  getCurrentVault: () => ipcRenderer.invoke('get-current-hearth'),
+  selectHearthFolder: () => ipcRenderer.invoke('select-hearth-folder'),
+  selectVaultFolder: () => ipcRenderer.invoke('select-hearth-folder'),
+  selectParentFolder: () => ipcRenderer.invoke('select-parent-folder'),
+  createNewHearth: (name, parentPath) => ipcRenderer.invoke('create-new-hearth', { name, parentPath }),
+  createNewVault: (name, parentPath) => ipcRenderer.invoke('create-new-hearth', { name, parentPath }),
+  renameHearth: (targetPath, newName) => ipcRenderer.invoke('rename-hearth', { targetPath, newName }),
+  renameVault: (targetPath, newName) => ipcRenderer.invoke('rename-hearth', { targetPath, newName }),
+  removeRecentHearth: (hearthPath) => ipcRenderer.invoke('remove-recent-hearth', hearthPath),
+  removeRecentVault: (vaultPath) => ipcRenderer.invoke('remove-recent-hearth', vaultPath),
+  setCurrentHearth: (hearthPath) => ipcRenderer.invoke('set-current-hearth', hearthPath),
+  setCurrentVault: (vaultPath) => ipcRenderer.invoke('set-current-hearth', vaultPath),
+  openHearthInExplorer: (hearthPath) => ipcRenderer.invoke('open-hearth-in-explorer', hearthPath),
+  openVaultInExplorer: (vaultPath) => ipcRenderer.invoke('open-hearth-in-explorer', vaultPath),
+  scanHearthFiles: (customHearthPath) => ipcRenderer.invoke('scan-hearth-files', customHearthPath),
+  scanVaultFiles: (customVaultPath) => ipcRenderer.invoke('scan-hearth-files', customVaultPath),
   saveMarkdownFile: (filename, content, relativePath, vaultPath) =>
     ipcRenderer.invoke('save-markdown-file', { filename, content, relativePath, vaultPath }),
   deleteMarkdownFile: (filenameOrPath, vaultPath) =>

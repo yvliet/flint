@@ -89,19 +89,18 @@ export const HearthSwitcherWindow: React.FC = React.memo(() => {
   const handleSaveRename = useCallback(async (targetPath: string) => {
     const trimmed = editHearthName.trim();
     if (trimmed) {
-      if (targetPath === currentHearthPath) {
-        alert('Cannot rename an open Hearth. Please switch to another Hearth first to rename its folder on disk.');
-        setEditingHearthPath(null);
-        return;
-      }
       const renameFn = platform.renameHearth || platform.renameVault;
       const res = await renameFn(targetPath, trimmed);
       if (res && res.success) {
+        const newPath = res.path || targetPath;
+        if (targetPath === currentHearthPath) {
+          setCurrentHearthPath(newPath);
+        }
         if (res.recentHearths && res.recentHearths.length > 0) {
           setRecentHearths(res.recentHearths);
         } else {
           setRecentHearths((prev) =>
-            prev.map((v) => (v.path === targetPath ? { ...v, name: trimmed, path: res.path || v.path } : v))
+            prev.map((v) => (v.path === targetPath ? { ...v, name: trimmed, path: newPath } : v))
           );
         }
       } else if (res?.error) {
@@ -247,10 +246,6 @@ export const HearthSwitcherWindow: React.FC = React.memo(() => {
                             <button
                               onClick={() => {
                                 setActiveMenuPath(null);
-                                if (rv.path === currentHearthPath) {
-                                  alert('Cannot rename an open Hearth. Please switch to another Hearth first to rename its folder on disk.');
-                                  return;
-                                }
                                 setEditingHearthPath(rv.path);
                                 setEditHearthName(rv.name || 'Hearth');
                               }}
@@ -276,7 +271,8 @@ export const HearthSwitcherWindow: React.FC = React.memo(() => {
                           <button
                             onClick={() => {
                               setActiveMenuPath(null);
-                              platform.openVaultInExplorer(rv.path);
+                              const openFn = platform.openHearthInExplorer || platform.openVaultInExplorer;
+                              openFn(rv.path);
                             }}
                             className="w-full text-left px-2.5 py-1.5 hover:bg-[#2c2c2c] rounded-md text-[#dcddde] hover:text-white flex items-center gap-2.5 transition-colors cursor-pointer"
                           >

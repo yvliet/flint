@@ -80,11 +80,7 @@ export const HearthModal: React.FC = React.memo(() => {
   const handleSaveRename = async (targetPath: string) => {
     const trimmed = editHearthName.trim();
     if (trimmed) {
-      if (targetPath === hearthPath) {
-        showToast('Cannot rename an open Hearth. Switch to another Hearth first to rename its folder on disk.', 'warning');
-      } else {
-        await renameHearth(targetPath, trimmed);
-      }
+      await renameHearth(targetPath, trimmed);
     }
     setEditingHearthPath(null);
   };
@@ -104,10 +100,6 @@ export const HearthModal: React.FC = React.memo(() => {
       title: 'Rename Hearth...',
       icon: <Edit02Icon size={14} />,
       onClick: () => {
-        if (rv.path === hearthPath) {
-          showToast('Cannot rename an open Hearth. Switch to another Hearth first to rename its folder on disk.', 'warning');
-          return;
-        }
         setEditingHearthPath(rv.path);
         setEditHearthName(rv.name || 'Hearth');
       },
@@ -129,7 +121,7 @@ export const HearthModal: React.FC = React.memo(() => {
       title: 'Reveal Hearth in file explorer',
       icon: <FolderOpenIcon size={14} />,
       onClick: () => {
-        platform.openVaultInExplorer(rv.path);
+        platform.openHearthInExplorer(rv.path);
       },
     },
     { type: 'separator' },

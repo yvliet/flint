@@ -297,8 +297,18 @@ function registerIpc() {
     createVaultWindow();
     return { success: true };
   });
+  ipcMain.handle('open-hearth-window', () => {
+    createVaultWindow();
+    return { success: true };
+  });
 
   ipcMain.handle('close-vault-window', () => {
+    if (vaultWindow && !vaultWindow.isDestroyed()) {
+      vaultWindow.close();
+    }
+    return { success: true };
+  });
+  ipcMain.handle('close-hearth-window', () => {
     if (vaultWindow && !vaultWindow.isDestroyed()) {
       vaultWindow.close();
     }
@@ -436,39 +446,67 @@ function registerIpc() {
       const cleanName = (newName || '').replace(/[/\\?%*:|"<>]/g, '_').trim();
       if (!cleanName) return { success: false, error: 'Name cannot be empty' };
 
-      const target = targetPath || appConfig.currentVaultPath;
+      const target = path.resolve(targetPath || appConfig.currentVaultPath);
       let finalPath = target;
 
       if (target && fs.existsSync(target)) {
         const parentDir = path.dirname(target);
-        const targetNewPath = path.join(parentDir, cleanName);
+        const targetNewPath = path.resolve(parentDir, cleanName);
 
-        if (targetNewPath.toLowerCase() !== target.toLowerCase()) {
-          if (fs.existsSync(targetNewPath)) {
+        if (targetNewPath !== target) {
+          const isCaseOnlyRename = targetNewPath.toLowerCase() === target.toLowerCase();
+
+          if (!isCaseOnlyRename && fs.existsSync(targetNewPath)) {
             return { success: false, error: `A folder named "${cleanName}" already exists at this location.` };
           }
 
-          // Temporarily close file watcher and wait for OS directory lock release
+          // Temporarily teardown file watcher and flush debounce timeout to release Windows OS handles
+          if (vaultWatcherTimeout) {
+            clearTimeout(vaultWatcherTimeout);
+            vaultWatcherTimeout = null;
+          }
           if (vaultWatcher) {
             try {
               vaultWatcher.close();
             } catch (e) {}
             vaultWatcher = null;
-            await new Promise((r) => setTimeout(r, 60));
           }
+
+          // Allow OS handles (like Windows ReadDirectoryChangesW) to be freed by the event loop
+          await new Promise((r) => setTimeout(r, 120));
 
           let renamedOnDisk = false;
           let lastError = null;
 
-          for (let attempt = 0; attempt < 3; attempt++) {
-            try {
-              fs.renameSync(target, targetNewPath);
-              finalPath = targetNewPath;
-              renamedOnDisk = true;
-              break;
-            } catch (renameErr) {
-              lastError = renameErr;
-              await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
+          // If Windows case-only rename (e.g. "my hearth" -> "My Hearth"), use a temporary intermediary
+          if (isCaseOnlyRename) {
+            const tempPath = path.join(parentDir, `.__flint_rename_tmp_${Date.now()}__`);
+            for (let attempt = 0; attempt < 5; attempt++) {
+              try {
+                fs.renameSync(target, tempPath);
+                fs.renameSync(tempPath, targetNewPath);
+                finalPath = targetNewPath;
+                renamedOnDisk = true;
+                break;
+              } catch (renameErr) {
+                lastError = renameErr;
+                if (fs.existsSync(tempPath) && !fs.existsSync(target)) {
+                  try { fs.renameSync(tempPath, target); } catch (_) {}
+                }
+                await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
+              }
+            }
+          } else {
+            for (let attempt = 0; attempt < 5; attempt++) {
+              try {
+                fs.renameSync(target, targetNewPath);
+                finalPath = targetNewPath;
+                renamedOnDisk = true;
+                break;
+              } catch (renameErr) {
+                lastError = renameErr;
+                await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
+              }
             }
           }
 
@@ -477,22 +515,30 @@ function registerIpc() {
             setupVaultWatcher(appConfig.currentVaultPath);
             return {
               success: false,
-              error: 'Cannot rename Hearth folder while it is open or in use. Please close this Hearth or switch to another Hearth first to rename it from the Hearth Switcher.',
+              error: `Cannot rename Hearth folder on disk (${lastError?.message || 'File locked by OS'}). Please try again.`,
             };
           }
         }
       }
 
       // Update appConfig
-      if (appConfig.currentVaultPath === target || target === finalPath) {
+      const isCurrent = appConfig.currentVaultPath && (
+        path.resolve(appConfig.currentVaultPath).toLowerCase() === target.toLowerCase() ||
+        path.resolve(appConfig.currentVaultPath).toLowerCase() === finalPath.toLowerCase()
+      );
+
+      if (isCurrent) {
         appConfig.currentVaultPath = finalPath;
       }
 
-      let updatedRecents = (appConfig.recentVaults || []).map((v) =>
-        v.path === target ? { ...v, path: finalPath, name: cleanName } : v
-      );
+      let updatedRecents = (appConfig.recentVaults || []).map((v) => {
+        if (v.path && path.resolve(v.path).toLowerCase() === target.toLowerCase()) {
+          return { ...v, path: finalPath, name: cleanName };
+        }
+        return v;
+      });
 
-      if (!updatedRecents.some((v) => v.path === finalPath)) {
+      if (!updatedRecents.some((v) => path.resolve(v.path).toLowerCase() === finalPath.toLowerCase())) {
         updatedRecents.unshift({ path: finalPath, name: cleanName, lastOpened: Date.now() });
       }
 
@@ -522,23 +568,42 @@ function registerIpc() {
   ipcMain.handle('rename-hearth', handleRenameHearth);
   ipcMain.handle('rename-vault', handleRenameHearth);
 
-  ipcMain.handle('remove-recent-vault', async (event, targetPath) => {
+  const handleRemoveRecentHearth = async (event, targetPath) => {
     try {
       appConfig.recentVaults = (appConfig.recentVaults || []).filter((v) => v.path !== targetPath);
       saveConfig(appConfig);
-      return { success: true, recentVaults: appConfig.recentVaults };
+      return { success: true, recentHearths: appConfig.recentVaults, recentVaults: appConfig.recentVaults };
     } catch (err) {
       return { success: false, error: err.message };
     }
-  });
+  };
 
-  ipcMain.handle('open-vault-in-explorer', async (event, vaultPath) => {
+  ipcMain.handle('remove-recent-hearth', handleRemoveRecentHearth);
+  ipcMain.handle('remove-recent-vault', handleRemoveRecentHearth);
+
+  const handleOpenHearthInExplorer = async (event, vaultPath) => {
     const target = vaultPath || appConfig.currentVaultPath;
     if (fs.existsSync(target)) {
       shell.openPath(target);
       return { success: true };
     }
     return { success: false, error: 'Folder does not exist' };
+  };
+
+  ipcMain.handle('open-hearth-in-explorer', handleOpenHearthInExplorer);
+  ipcMain.handle('open-vault-in-explorer', handleOpenHearthInExplorer);
+
+  ipcMain.handle('scan-hearth-files', async (event, customHearthPath) => {
+    try {
+      const targetVault = customHearthPath || appConfig.currentVaultPath || path.join(app.getPath('documents'), 'Flint Hearth');
+      if (!fs.existsSync(targetVault)) {
+        fs.mkdirSync(targetVault, { recursive: true });
+      }
+      return scanVaultDirectory(targetVault, targetVault);
+    } catch (err) {
+      console.error('[Flint Hearth] Error scanning hearth files:', err);
+      return [];
+    }
   });
 
   ipcMain.handle('save-database', async (event, payload) => {

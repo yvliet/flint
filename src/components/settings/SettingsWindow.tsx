@@ -2825,8 +2825,8 @@ export const SettingsWindowContent: React.FC<SettingsWindowContentProps> = React
   const app = useFlintApp();
   const allSettingTabs = useSettingTabs();
 
-  const vaultName = useWorkspaceStore((s) => s.vaultName);
-  const setVaultName = useWorkspaceStore((s) => s.setVaultName);
+  const hearthName = useWorkspaceStore((s) => s.hearthName || s.vaultName);
+  const setHearthName = useWorkspaceStore((s) => s.setHearthName);
   const showToast = useWorkspaceStore((s) => s.showToast);
   const restoreAllDefaults = useSettingsStore((s) => s.restoreAllDefaults);
 
@@ -2844,19 +2844,21 @@ export const SettingsWindowContent: React.FC<SettingsWindowContentProps> = React
   }, [initialTab]);
 
   useEffect(() => {
-    platform.getCurrentVault().then((data) => {
+    const getFn = platform.getCurrentHearth || platform.getCurrentVault;
+    getFn().then((data) => {
       if (data?.name) {
-        setVaultName(data.name);
+        setHearthName(data.name);
       }
     });
     app.plugins.init();
     dbAdapter.init().then(() => {
       useDocumentStore.getState().loadTrash();
     });
-  }, [app, setVaultName]);
+  }, [app, setHearthName]);
 
   useEffect(() => {
-    const unsub = platform.onVaultFilesChanged(async () => {
+    const onFiles = platform.onHearthFilesChanged || platform.onVaultFilesChanged;
+    const unsub = onFiles(async () => {
       await dbAdapter.resetAndReload();
       useDocumentStore.getState().loadTrash();
     });
@@ -2867,11 +2869,11 @@ export const SettingsWindowContent: React.FC<SettingsWindowContentProps> = React
 
   // When closing or unmounting Settings, apply any pending appearance/zoom updates to DOM
   useEffect(() => {
-    platform.setWindowTitle(`Settings﹕${vaultName || 'Hearth'}﹕Flint`);
+    platform.setWindowTitle(`Settings﹕${hearthName || 'Hearth'}﹕Flint`);
     return () => {
       applyAppearanceDOM();
     };
-  }, [vaultName]);
+  }, [hearthName]);
 
   const isMaximized = useIsMaximized();
 
@@ -3054,7 +3056,7 @@ export const SettingsWindowContent: React.FC<SettingsWindowContentProps> = React
           <span className="font-medium text-xs text-[var(--flint-text-muted,#888)] flex items-center gap-1.5 select-none">
             <span className="text-[var(--flint-text-secondary,#ccc)]">Settings</span>
             <span className="text-[var(--flint-text-faint,#555)]">﹕</span>
-            <span className="text-[var(--flint-text-primary)] font-medium">{vaultName || 'Flint Hearth'}</span>
+            <span className="text-[var(--flint-text-primary)] font-medium">{hearthName || 'Flint Hearth'}</span>
             <span className="text-[var(--flint-text-faint,#555)]">﹕</span>
             <span className="text-[var(--flint-text-muted,#888)]">Flint</span>
           </span>

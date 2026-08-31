@@ -268,11 +268,17 @@ class PlatformAdapterImpl implements IPlatformAdapter {
 
   // Multi-window / Modal management
   public async openHearthWindow(): Promise<{ success: boolean }> {
+    if (this.isElectron() && window.electronAPI?.openHearthWindow) {
+      return await window.electronAPI.openHearthWindow();
+    }
     useWorkspaceStore.getState().setIsHearthModalOpen(true);
     return { success: true };
   }
 
   public async closeHearthWindow(): Promise<{ success: boolean }> {
+    if (this.isElectron() && window.electronAPI?.closeHearthWindow) {
+      return await window.electronAPI.closeHearthWindow();
+    }
     useWorkspaceStore.getState().setIsHearthModalOpen(false);
     return { success: true };
   }
@@ -384,8 +390,13 @@ class PlatformAdapterImpl implements IPlatformAdapter {
     if (this.isTauri()) {
       try {
         const { tauriCore } = await getTauriModules();
-        const res = await tauriCore?.invoke('rename_vault', { targetPath, newName });
-        return { success: Boolean(res?.success), path: res?.path, name: res?.name, recentHearths: res?.recentVaults || [], error: res?.error };
+        let res: any;
+        try {
+          res = await tauriCore?.invoke('rename_hearth', { targetPath, newName });
+        } catch (_) {
+          res = await tauriCore?.invoke('rename_vault', { targetPath, newName });
+        }
+        return { success: Boolean(res?.success), path: res?.path, name: res?.name, recentHearths: res?.recentHearths || res?.recentVaults || [], error: res?.error };
       } catch (e: any) {
         return { success: false, error: e.message, recentHearths: [] };
       }

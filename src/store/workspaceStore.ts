@@ -1896,10 +1896,18 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       if (!cleanName) return { success: false, error: 'Name cannot be empty' };
 
       const activePath = targetPath || get().hearthPath || get().vaultPath;
+      const isCurrent = !activePath || activePath === get().hearthPath || activePath === get().vaultPath;
+
+      // If the active hearth is being renamed, flush pending SQLite writes first
+      if (isCurrent) {
+        try {
+          await dbAdapter.persist();
+        } catch (_) {}
+      }
+
       const res = await platform.renameHearth(activePath, cleanName);
       if (res && res.success) {
         const list = res.recentHearths || [];
-        const isCurrent = !activePath || activePath === get().hearthPath || activePath === get().vaultPath;
         const finalPath = res.path || activePath;
 
         set((state) => ({
@@ -1910,6 +1918,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           hearthPath: isCurrent ? finalPath : state.hearthPath,
           vaultPath: isCurrent ? finalPath : state.vaultPath,
         }));
+
+        if (isCurrent) {
+          dbAdapter.setActiveHearthPath(finalPath);
+          try {
+            await platform.setWindowTitle(`Flint`);
+          } catch (_) {}
+        }
+
         get().showToast(`Renamed Hearth to "${cleanName}"`, 'success');
         return { success: true, path: finalPath, name: cleanName };
       } else {

@@ -88,7 +88,6 @@ export const LeftSidebar: React.FC = React.memo(() => {
   const showToast = useWorkspaceStore((s) => s.showToast);
   const openConfirmDialog = useWorkspaceStore((s) => s.openConfirmDialog);
   const openInputDialog = useWorkspaceStore((s) => s.openInputDialog);
-  const renameVault = useWorkspaceStore((s) => s.renameVault);
 
   const documents = useDocumentStore((s) => s.documents);
   const createNewNote = useDocumentStore((s) => s.createNewNote);
@@ -625,7 +624,7 @@ export const LeftSidebar: React.FC = React.memo(() => {
             ))}
 
             {/* Standard Hearth Root Documents & Folders */}
-            <div data-tree-section="vault-files" className="flex flex-col gap-0.5">
+            <div data-tree-section="hearth-files" className="flex flex-col gap-0.5">
               {rootDocs.map((doc) => (
                 <FileTreeNode key={doc.id} item={doc} allDocs={documents} sortOrder={sortOrder} />
               ))}
@@ -686,7 +685,7 @@ export const LeftSidebar: React.FC = React.memo(() => {
                 title: 'Reveal Hearth in file explorer',
                 icon: <FolderOpenIcon size={14} />,
                 onClick: () => {
-                  platform.openVaultInExplorer(hearthPath);
+                  platform.openHearthInExplorer(hearthPath);
                 },
               },
             ]);

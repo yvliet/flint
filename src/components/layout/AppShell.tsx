@@ -222,10 +222,11 @@ export const AppShell: React.FC = React.memo(() => {
     });
 
 
-    // 2. External Vault files changed listener (Git pulls, external edits, sync)
+    // 2. External Hearth files changed listener (Git pulls, external edits, sync)
     let syncTimeout: any = null;
-    const unsubFiles = platform.onVaultFilesChanged(() => {
-      // Suppress full vault reload storm when the change was initiated internally by Flint
+    const onFilesChanged = platform.onHearthFilesChanged || platform.onVaultFilesChanged;
+    const unsubFiles = onFilesChanged(() => {
+      // Suppress full hearth reload storm when the change was initiated internally by Flint
       if (platform.isRecentInternalWrite()) {
         return;
       }
@@ -239,15 +240,21 @@ export const AppShell: React.FC = React.memo(() => {
       }, 600);
     });
 
-    // 3. Initialize Vault folder config, SQLite and load workspace
+    // 3. Initialize Hearth folder config, SQLite and load workspace
     initHearthInfo().finally(() => {
       dbAdapter.init().then(() => {
         loadInitialData();
       });
     });
 
-    const unsubVault = platform.onVaultChanged(async () => {
-      // Reload window to start completely fresh for the new Hearth, exactly like Obsidian
+    const onHearth = platform.onHearthChanged || platform.onVaultChanged;
+    const unsubHearth = onHearth(async (data) => {
+      // If the current window state has already updated to the new Hearth path, do not reload
+      const currentPath = useWorkspaceStore.getState().hearthPath || useWorkspaceStore.getState().vaultPath;
+      if (currentPath && data?.path && currentPath.toLowerCase() === data.path.toLowerCase()) {
+        return;
+      }
+      // Reload window to start completely fresh for the new Hearth
       window.location.reload();
     });
 
@@ -281,7 +288,7 @@ export const AppShell: React.FC = React.memo(() => {
     return () => {
       unsubDb();
       if (unsubFiles) unsubFiles();
-      if (unsubVault) unsubVault();
+      if (unsubHearth) unsubHearth();
       if (syncTimeout) clearTimeout(syncTimeout);
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('keydown', reportUserActivity);
