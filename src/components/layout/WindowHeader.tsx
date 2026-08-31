@@ -5,7 +5,7 @@ import {
   Search01Icon,
   PlusSignIcon,
   Cancel01Icon,
-  GitForkIcon,
+  NeuralNetworkIcon,
   Layout01Icon,
   LayoutLeftIcon,
   LayoutAlignLeftIcon,
@@ -777,7 +777,7 @@ export const WindowHeader: React.FC = React.memo(() => {
           return <span className="shrink-0 text-[12px]">{regView.icon}</span>;
         }
         if (viewType === 'graph') {
-          return <GitForkIcon size={13} className={`shrink-0 ${iconColor}`} />;
+          return <NeuralNetworkIcon size={13} className={`shrink-0 ${iconColor}`} />;
         }
         if (viewType === 'canvas') {
           return <Layout01Icon size={13} className={`shrink-0 ${iconColor}`} />;
@@ -903,7 +903,7 @@ export const WindowHeader: React.FC = React.memo(() => {
           }
           return regView.icon;
         }
-        if (viewType === 'graph') return <GitForkIcon size={14} />;
+        if (viewType === 'graph') return <NeuralNetworkIcon size={14} />;
         if (viewType === 'canvas') return <Layout01Icon size={14} />;
       }
 

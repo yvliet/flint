@@ -13,7 +13,7 @@ import React from 'react';
 import { Extension } from '@/core/extensions/Extension';
 import { ExtensionManifest } from '@/core/extensions/types';
 import { FlintApp } from '@/core/app/FlintApp';
-import { GitForkIcon } from '@/components/common/Icons';
+import { NeuralNetworkIcon } from '@/components/common/Icons';
 import { GraphSettingsTab } from './GraphSettingsTab';
 import { graphReadme } from './readme';
 
@@ -42,7 +42,7 @@ export class GraphExtension extends Extension {
     this.registerView({
       type: 'graph',
       title: 'Graph View',
-      icon: <GitForkIcon size={14} />,
+      icon: <NeuralNetworkIcon size={14} />,
       render: (props) => (
         <React.Suspense fallback={<div className="w-full h-full bg-transparent" />}>
           <LazyGraphView isSidebar={(props as any)?.isSidebar} />
@@ -53,7 +53,7 @@ export class GraphExtension extends Extension {
     // 2. Register Action Rail item
     this.addActionRailIcon(
       'open-graph-view',
-      <GitForkIcon size={16} />,
+      <NeuralNetworkIcon size={16} />,
       'Open graph view (Ctrl+G)',
       (app) => {
         app.workspace.setMainViewMode('graph');
@@ -66,7 +66,7 @@ export class GraphExtension extends Extension {
       id: 'cmd-open-graph-view',
       title: 'Open graph view',
       section: 'Navigation',
-      icon: <GitForkIcon size={16} />,
+      icon: <NeuralNetworkIcon size={16} />,
       hotkey: 'Ctrl+G',
       action: (app) => {
         app.workspace.setMainViewMode('graph');
@@ -77,7 +77,7 @@ export class GraphExtension extends Extension {
     this.registerSettingTab({
       id: 'graph-settings',
       name: 'Graph view',
-      icon: <GitForkIcon size={14} />,
+      icon: <NeuralNetworkIcon size={14} />,
       render: () => <GraphSettingsTab />,
     });
   }

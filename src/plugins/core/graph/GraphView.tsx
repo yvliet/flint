@@ -12,7 +12,7 @@ import {
   CenterFocusIcon,
   BubblesIcon,
   Cancel01Icon,
-  GitForkIcon,
+  NeuralNetworkIcon,
 } from '@/components/common/Icons';
 import { Tooltip } from '@/components/common/Tooltip';
 import { PageSubHeader } from '@/components/layout/PageSubHeader';
@@ -2672,7 +2672,7 @@ export const GraphView: React.FC<GraphViewProps> = React.memo(({ isSidebar: prop
       {/* Shared Modular Document Sub-Header */}
       <PageSubHeader
         title="Graph view"
-        icon={<GitForkIcon size={13} />}
+        icon={<NeuralNetworkIcon size={13} />}
         document={null}
         hideBar={true}
         isSidebar={isSidebar}

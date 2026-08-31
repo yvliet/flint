@@ -6,7 +6,7 @@ import {
   Cancel01Icon,
   Folder01Icon,
   Search01Icon,
-  GitForkIcon,
+  NeuralNetworkIcon,
   Layout01Icon,
   Store01Icon,
   CheckmarkSquare02Icon,
@@ -100,7 +100,7 @@ export const SidebarSecondaryIconBar: React.FC<SidebarSecondaryIconBarProps> = R
         }
         return regView.icon;
       }
-      if (viewType === 'graph') return <GitForkIcon size={15} />;
+      if (viewType === 'graph') return <NeuralNetworkIcon size={15} />;
       if (viewType === 'canvas') return <Layout01Icon size={15} />;
       if (viewType === 'marketplace') return <Store01Icon size={15} />;
       if (viewType === 'tasks') return <CheckmarkSquare02Icon size={15} />;

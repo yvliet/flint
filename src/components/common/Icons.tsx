@@ -123,6 +123,7 @@ import {
   Menu01Icon as HugeMenu01Icon,
   TextFootnoteIcon as HugeTextFootnoteIcon,
   TextSelectionIcon as HugeTextSelectionIcon,
+  NeuralNetworkIcon as HugeNeuralNetworkIcon,
 } from '@hugeicons/core-free-icons';
 
 export interface IconProps extends React.SVGProps<SVGSVGElement> {
@@ -278,6 +279,7 @@ export const DatabaseIcon = createIcon(HugeDatabaseIcon);
 export const DatabaseSync01Icon = createIcon(HugeDatabaseSync01Icon);
 export const ArrowUpDownIcon = createIcon(HugeArrowUpDownIcon);
 export const GitForkIcon = createIcon(HugeGitForkIcon);
+export const NeuralNetworkIcon = createIcon(HugeNeuralNetworkIcon);
 export const Layout01Icon = createIcon(HugeLayout01Icon);
 export const LayoutLeftIcon = createIcon(HugeLayoutLeftIcon);
 export const LayoutRightIcon = createIcon(HugeLayoutRightIcon);

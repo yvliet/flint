@@ -10,7 +10,7 @@ import {
   Cancel01Icon,
   PlusSignIcon,
   Alert02Icon,
-  GitForkIcon,
+  NeuralNetworkIcon,
   Layout01Icon,
   SplitRightIcon,
   Copy01Icon,
@@ -109,7 +109,7 @@ export const SplitTabHeader: React.FC<SplitTabHeaderProps> = React.memo(({ paneI
           return <span className="shrink-0 text-[12px]">{regView.icon}</span>;
         }
         if (viewType === 'graph') {
-          return <GitForkIcon size={13} className={`shrink-0 ${iconColor}`} />;
+          return <NeuralNetworkIcon size={13} className={`shrink-0 ${iconColor}`} />;
         }
         if (viewType === 'canvas') {
           return <Layout01Icon size={13} className={`shrink-0 ${iconColor}`} />;

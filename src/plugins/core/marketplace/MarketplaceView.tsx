@@ -14,6 +14,7 @@ import {
   Database01Icon,
   Calendar01Icon,
   GitForkIcon,
+  NeuralNetworkIcon,
   Edit02Icon,
   Tag01Icon,
   SourceCodeIcon,
@@ -109,7 +110,7 @@ export const COMMUNITY_MARKETPLACE_CATALOGUE: MarketplacePluginItem[] = [
     downloads: '26.4k',
     stars: 4.9,
     category: 'Visualization',
-    icon: <GitForkIcon size={18} className="text-[#a855f7]" />,
+    icon: <NeuralNetworkIcon size={18} className="text-[#a855f7]" />,
   },
   {
     id: 'flint-git-sync',
