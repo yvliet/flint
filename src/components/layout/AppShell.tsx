@@ -246,20 +246,9 @@ export const AppShell: React.FC = React.memo(() => {
       });
     });
 
-    const unsubVault = platform.onVaultChanged(async (vault) => {
-      useWorkspaceStore.setState({
-        hearthName: vault.name || 'Hearth',
-        vaultName: vault.name || 'Hearth',
-        hearthPath: vault.path,
-        vaultPath: vault.path,
-        recentHearths: vault.recentVaults || [],
-        recentVaults: vault.recentVaults || [],
-        tabs: [],
-        activeTabId: null,
-      });
-      await dbAdapter.resetAndReload();
-      await loadInitialData();
-      useWorkspaceStore.getState().showToast(`Switched Hearth to ${vault.name}`, 'success');
+    const unsubVault = platform.onVaultChanged(async () => {
+      // Reload window to start completely fresh for the new Hearth, exactly like Obsidian
+      window.location.reload();
     });
 
     // 4. Cross-window communication listener (e.g. opening tabs from Settings window)

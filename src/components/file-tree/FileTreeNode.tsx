@@ -327,7 +327,7 @@ const FileTreeNodeComponent: React.FC<FileTreeNodeProps> = ({
       if (isMulti) {
         openConfirmDialog({
           title: `Delete ${currentSelectedIds.length} items?`,
-          message: `Are you sure you want to delete these ${currentSelectedIds.length} items? They will be permanently deleted from your vault.`,
+          message: `Are you sure you want to delete these ${currentSelectedIds.length} items? They will be permanently deleted from your Hearth.`,
           confirmText: 'Delete all',
           isDanger: true,
           onConfirm: async () => {
@@ -338,7 +338,7 @@ const FileTreeNodeComponent: React.FC<FileTreeNodeProps> = ({
         openConfirmDialog({
           title: `Delete ${isFolder ? 'Folder' : 'File'}`,
           message: `Are you sure you want to delete "${item.title}"? ${
-            isFolder ? 'All contents inside this folder will also be deleted.' : 'It will be permanently deleted from your vault.'
+            isFolder ? 'All contents inside this folder will also be deleted.' : 'It will be permanently deleted from your Hearth.'
           }`,
           confirmText: 'Delete',
           isDanger: true,
@@ -411,7 +411,7 @@ const FileTreeNodeComponent: React.FC<FileTreeNodeProps> = ({
           openConfirmDialog({
             title: `${typeLabel} already exists`,
             message: `A ${typeLabel.toLowerCase()} named “${item.title}” already exists in ${
-              targetParentId ? `“${targetTitle}”` : 'vault root'
+              targetParentId ? `“${targetTitle}”` : 'Hearth root'
             }. Would you like to rename it to “${candidateTitle}”?`,
             subtext: `It will be renamed to “${candidateTitle}” and moved.`,
             confirmText: 'Rename and move',
@@ -579,7 +579,7 @@ const FileTreeNodeComponent: React.FC<FileTreeNodeProps> = ({
             onClick: () => {
               openConfirmDialog({
                 title: `Delete ${currentSelectedIds.length} items?`,
-                message: `Are you sure you want to delete these ${currentSelectedIds.length} items? They will be permanently deleted from your vault.`,
+                message: `Are you sure you want to delete these ${currentSelectedIds.length} items? They will be permanently deleted from your Hearth.`,
                 confirmText: 'Delete all',
                 isDanger: true,
                 onConfirm: async () => {
@@ -730,7 +730,7 @@ const FileTreeNodeComponent: React.FC<FileTreeNodeProps> = ({
               if (platform.isDesktop()) {
                 platform.openVaultInExplorer(vaultPath);
               } else {
-                showToast('Vault folder: ' + (vaultPath || 'local memory'), 'info');
+                showToast('Hearth folder: ' + (vaultPath || 'local memory'), 'info');
               }
             },
           },

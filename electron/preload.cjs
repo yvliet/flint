@@ -35,22 +35,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectVaultFolder: () => ipcRenderer.invoke('select-vault-folder'),
   selectParentFolder: () => ipcRenderer.invoke('select-parent-folder'),
   createNewVault: (name, parentPath) => ipcRenderer.invoke('create-new-vault', { name, parentPath }),
+  renameHearth: (targetPath, newName) => ipcRenderer.invoke('rename-hearth', { targetPath, newName }),
+  renameVault: (targetPath, newName) => ipcRenderer.invoke('rename-hearth', { targetPath, newName }),
   removeRecentVault: (vaultPath) => ipcRenderer.invoke('remove-recent-vault', vaultPath),
   setCurrentVault: (vaultPath) => ipcRenderer.invoke('set-current-vault', vaultPath),
   openVaultInExplorer: (vaultPath) => ipcRenderer.invoke('open-vault-in-explorer', vaultPath),
-  saveDatabase: (bytes) => ipcRenderer.invoke('save-database', bytes),
-  loadDatabase: () => ipcRenderer.invoke('load-database'),
+  saveDatabase: (bytes, customVaultPath) => ipcRenderer.invoke('save-database', { bytes, vaultPath: customVaultPath }),
+  loadDatabase: (customVaultPath) => ipcRenderer.invoke('load-database', customVaultPath),
   onVaultFilesChanged: (callback) => {
     const listener = () => callback();
     ipcRenderer.on('vault-files-changed', listener);
     return () => ipcRenderer.removeListener('vault-files-changed', listener);
   },
   scanVaultFiles: (customVaultPath) => ipcRenderer.invoke('scan-vault-files', customVaultPath),
-  saveMarkdownFile: (filename, content, relativePath) =>
-    ipcRenderer.invoke('save-markdown-file', { filename, content, relativePath }),
-  deleteMarkdownFile: (filenameOrPath) => ipcRenderer.invoke('delete-markdown-file', filenameOrPath),
-  renameMarkdownFile: (oldFilename, newFilename, oldRelativePath, newRelativePath) =>
-    ipcRenderer.invoke('rename-markdown-file', { oldFilename, newFilename, oldRelativePath, newRelativePath }),
+  saveMarkdownFile: (filename, content, relativePath, vaultPath) =>
+    ipcRenderer.invoke('save-markdown-file', { filename, content, relativePath, vaultPath }),
+  deleteMarkdownFile: (filenameOrPath, vaultPath) =>
+    ipcRenderer.invoke('delete-markdown-file', { filenameOrPath, vaultPath }),
+  renameMarkdownFile: (oldFilename, newFilename, oldRelativePath, newRelativePath, vaultPath) =>
+    ipcRenderer.invoke('rename-markdown-file', { oldFilename, newFilename, oldRelativePath, newRelativePath, vaultPath }),
   openPluginsFolder: () => ipcRenderer.invoke('open-plugins-folder'),
   openTrashFolder: () => ipcRenderer.invoke('open-trash-folder'),
   saveTrashFile: (filename, content, relativePath) =>

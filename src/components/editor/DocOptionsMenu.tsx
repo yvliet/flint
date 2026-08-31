@@ -349,7 +349,7 @@ export const DocOptionsMenu: React.FC<DocOptionsMenuProps> = React.memo(({ docum
     setIsOpen(false);
     const folders = documents.filter((d) => d.is_folder);
     if (folders.length === 0) {
-      showToast('No folders exist in this vault', 'info');
+      showToast('No folders exist in this Hearth', 'info');
       return;
     }
     openInputDialog({
@@ -486,7 +486,7 @@ export const DocOptionsMenu: React.FC<DocOptionsMenuProps> = React.memo(({ docum
     if (platform.isDesktop()) {
       platform.openVaultInExplorer(vaultPath);
     } else {
-      showToast('Vault folder: ' + (vaultPath || 'local memory'), 'info');
+      showToast('Hearth folder: ' + (vaultPath || 'local memory'), 'info');
     }
   };
 
