@@ -496,7 +496,11 @@ export const GraphView: React.FC<GraphViewProps> = React.memo(({ isSidebar: prop
   }, [centerGraph]);
 
   const handleFitToCenter = useCallback(() => {
-    if ((isTimelapseActiveRef.current || isFloatActiveRef.current) && graphFocusCameraRef.current) return;
+    if (
+      ((isTimelapseActiveRef.current && !isTimelapsePausedRef.current) || isFloatActiveRef.current) &&
+      graphFocusCameraRef.current
+    )
+      return;
     handleResetView();
   }, [handleResetView]);
 
@@ -2250,8 +2254,8 @@ export const GraphView: React.FC<GraphViewProps> = React.memo(({ isSidebar: prop
       // Prevent native browser viewport scaling
       e.preventDefault();
 
-      // Lock manual zooming & panning while in focus camera time-lapse
-      if (isTimelapseActiveRef.current && graphFocusCameraRef.current) return;
+      // Lock manual zooming & panning while in actively playing focus camera time-lapse
+      if (isTimelapseActiveRef.current && !isTimelapsePausedRef.current && graphFocusCameraRef.current) return;
 
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
@@ -2332,7 +2336,7 @@ export const GraphView: React.FC<GraphViewProps> = React.memo(({ isSidebar: prop
     let gestureInitialTransform = { x: 0, y: 0 };
     const handleGestureStart = (e: any) => {
       e.preventDefault();
-      if (isTimelapseActiveRef.current && graphFocusCameraRef.current) return;
+      if (isTimelapseActiveRef.current && !isTimelapsePausedRef.current && graphFocusCameraRef.current) return;
       gestureInitialScale = targetTransformRef.current.scale || 1;
       gestureInitialTransform = {
         x: targetTransformRef.current.x || 0,
@@ -2341,7 +2345,7 @@ export const GraphView: React.FC<GraphViewProps> = React.memo(({ isSidebar: prop
     };
     const handleGestureChange = (e: any) => {
       e.preventDefault();
-      if (isTimelapseActiveRef.current && graphFocusCameraRef.current) return;
+      if (isTimelapseActiveRef.current && !isTimelapsePausedRef.current && graphFocusCameraRef.current) return;
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
@@ -2362,7 +2366,7 @@ export const GraphView: React.FC<GraphViewProps> = React.memo(({ isSidebar: prop
     };
     const handleGestureEnd = (e: any) => {
       e.preventDefault();
-      if (isTimelapseActiveRef.current && graphFocusCameraRef.current) return;
+      if (isTimelapseActiveRef.current && !isTimelapsePausedRef.current && graphFocusCameraRef.current) return;
       persistTransform();
       startAnimation();
     };
@@ -2414,7 +2418,7 @@ export const GraphView: React.FC<GraphViewProps> = React.memo(({ isSidebar: prop
       isDraggingRef.current = false;
       panHistoryRef.current = [];
 
-      if (isTimelapseActiveRef.current && graphFocusCameraRef.current) return;
+      if (isTimelapseActiveRef.current && !isTimelapsePausedRef.current && graphFocusCameraRef.current) return;
 
       const pts = Array.from(activePointersRef.current.values());
       const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
@@ -2446,7 +2450,7 @@ export const GraphView: React.FC<GraphViewProps> = React.memo(({ isSidebar: prop
     const mouseY = (e.clientY - rect.top - (currentTransformRef.current.y || 0)) / safeScale;
 
     const isTimelapse = isTimelapseActiveRef.current;
-    const isCameraLocked = isTimelapse && graphFocusCameraRef.current;
+    const isCameraLocked = isTimelapse && !isTimelapsePausedRef.current && graphFocusCameraRef.current;
 
     const clickedNode = nodesRef.current.find((n) => {
       if (!Number.isFinite(n.x) || !Number.isFinite(n.y)) return false;
@@ -2737,14 +2741,14 @@ export const GraphView: React.FC<GraphViewProps> = React.memo(({ isSidebar: prop
             <button
               type="button"
               onClick={handleFitToCenter}
-              disabled={(isTimelapseActive || isFloatActive) && graphFocusCamera}
+              disabled={((isTimelapseActive && !isTimelapsePaused) || isFloatActive) && graphFocusCamera}
               title={
-                (isTimelapseActive || isFloatActive) && graphFocusCamera
+                ((isTimelapseActive && !isTimelapsePaused) || isFloatActive) && graphFocusCamera
                   ? 'Fit to center (Disabled when focus camera is active)'
                   : 'Fit to center'
               }
               className={`p-1 rounded transition-colors ${
-                (isTimelapseActive || isFloatActive) && graphFocusCamera
+                ((isTimelapseActive && !isTimelapsePaused) || isFloatActive) && graphFocusCamera
                   ? 'text-[#444] opacity-40 cursor-not-allowed'
                   : 'text-[#777] hover:text-[#dcddde] hover:bg-[#222] cursor-pointer'
               }`}
