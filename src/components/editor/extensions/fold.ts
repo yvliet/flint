@@ -3,6 +3,11 @@ import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useDocumentStore } from '@/store/documentStore';
+import {
+  ChevronDownIcon as HugeChevronDownDef,
+  ChevronRightIcon as HugeChevronRightDef,
+} from '@hugeicons/core-free-icons';
+import { renderHugeIconSvg } from '@/components/common/Icons';
 
 export const FoldPluginKey = new PluginKey('foldPlugin');
 /** Backward compatibility alias */
@@ -10,14 +15,23 @@ export const FoldHeadingPluginKey = FoldPluginKey;
 
 const getHeadingChevronSvg = (level: number, isFolded: boolean) => {
   const size = level === 1 ? 18 : level === 2 ? 16 : level === 3 ? 14 : 13;
-  if (isFolded) {
-    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`;
-  }
-  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`;
+  return renderHugeIconSvg(isFolded ? HugeChevronRightDef : HugeChevronDownDef, {
+    size,
+    color: 'currentColor',
+    strokeWidth: 2,
+  });
 };
 
-const CHEVRON_DOWN_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`;
-const CHEVRON_RIGHT_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`;
+const CHEVRON_DOWN_SVG = renderHugeIconSvg(HugeChevronDownDef, {
+  size: 12,
+  color: 'currentColor',
+  strokeWidth: 2,
+});
+const CHEVRON_RIGHT_SVG = renderHugeIconSvg(HugeChevronRightDef, {
+  size: 12,
+  color: 'currentColor',
+  strokeWidth: 2,
+});
 
 export interface FoldPluginState {
   foldedHeadings: Set<number>;

@@ -16,6 +16,10 @@ import {
   Copy01Icon,
   Alert02Icon,
   StickyNote02Icon,
+  WindowMinimizeIcon,
+  WindowMaximizeIcon,
+  WindowRestoreIcon,
+  WindowCloseIcon,
 } from '@/components/common/Icons';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useDocumentStore } from '@/store/documentStore';
@@ -1155,9 +1159,7 @@ export const WindowHeader: React.FC = React.memo(() => {
               title="Minimize"
               className="h-full w-11 flex items-center justify-center text-[var(--flint-text-muted)] hover:text-[var(--flint-text-primary)] hover:bg-[var(--flint-bg-card-hover)] transition-colors cursor-pointer"
             >
-              <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor">
-                <rect width="10" height="1" />
-              </svg>
+              <WindowMinimizeIcon />
             </button>
 
             <button
@@ -1170,16 +1172,7 @@ export const WindowHeader: React.FC = React.memo(() => {
               title={isMaximized ? 'Restore' : 'Maximize'}
               className="h-full w-11 flex items-center justify-center text-[var(--flint-text-muted)] hover:text-[var(--flint-text-primary)] hover:bg-[var(--flint-bg-card-hover)] transition-colors cursor-pointer"
             >
-              {isMaximized ? (
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-                  <rect x="0.5" y="2.5" width="7" height="7" />
-                  <path d="M 2.5 2.5 L 2.5 0.5 L 9.5 0.5 L 9.5 7.5 L 7.5 7.5" />
-                </svg>
-              ) : (
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-                  <rect x="0.5" y="0.5" width="9" height="9" />
-                </svg>
-              )}
+              {isMaximized ? <WindowRestoreIcon /> : <WindowMaximizeIcon />}
             </button>
 
             <button
@@ -1192,9 +1185,7 @@ export const WindowHeader: React.FC = React.memo(() => {
               title="Close"
               className="h-full w-11 flex items-center justify-center text-[var(--flint-text-muted)] hover:text-white hover:bg-[#e81123] transition-colors cursor-pointer"
             >
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
-                <path d="M 0 0 L 10 10 M 10 0 L 0 10" />
-              </svg>
+              <WindowCloseIcon />
             </button>
           </div>
         )}

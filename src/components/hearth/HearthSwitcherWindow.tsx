@@ -9,6 +9,10 @@ import {
   Copy01Icon,
   Edit02Icon,
   MoveFileIcon,
+  WindowMinimizeIcon,
+  WindowMaximizeIcon,
+  WindowRestoreIcon,
+  WindowCloseIcon,
 } from '@/components/common/Icons';
 import { RecentHearthItem } from '@/types';
 import { TooltipProvider } from '@/components/common/TooltipProvider';
@@ -305,9 +309,7 @@ export const HearthSwitcherWindow: React.FC = React.memo(() => {
             title="Minimize"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
-            <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor">
-              <rect width="10" height="1" />
-            </svg>
+            <WindowMinimizeIcon />
           </button>
           <button
             onClick={handleMaximize}
@@ -315,16 +317,7 @@ export const HearthSwitcherWindow: React.FC = React.memo(() => {
             title={isMaximized ? 'Restore' : 'Maximize'}
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
-            {isMaximized ? (
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-                <rect x="0.5" y="2.5" width="7" height="7" />
-                <path d="M 2.5 2.5 L 2.5 0.5 L 9.5 0.5 L 9.5 7.5 L 7.5 7.5" />
-              </svg>
-            ) : (
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-                <rect x="0.5" y="0.5" width="9" height="9" />
-              </svg>
-            )}
+            {isMaximized ? <WindowRestoreIcon /> : <WindowMaximizeIcon />}
           </button>
           <button
             onClick={handleClose}
@@ -332,9 +325,7 @@ export const HearthSwitcherWindow: React.FC = React.memo(() => {
             title="Close"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
-              <path d="M 0 0 L 10 10 M 10 0 L 0 10" />
-            </svg>
+            <WindowCloseIcon />
           </button>
         </div>
 

@@ -35,6 +35,8 @@ export { Extension, Plugin } from '../core/extensions/Extension';
 export { ExtensionManager, PluginManager } from '../core/extensions/ExtensionManager';
 export { FlintApp, appInstance } from '../core/app/FlintApp';
 export { EventBus } from '../core/events/EventBus';
+export { renderHugeIconSvg } from '../components/common/Icons';
+export type { IconProps, RenderHugeIconSvgOptions } from '../components/common/Icons';
 
 // ── Public API Contracts ──
 export type {

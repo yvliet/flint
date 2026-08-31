@@ -124,6 +124,11 @@ import {
   TextFootnoteIcon as HugeTextFootnoteIcon,
   TextSelectionIcon as HugeTextSelectionIcon,
   NeuralNetworkIcon as HugeNeuralNetworkIcon,
+  Alert02Icon as HugeAlert02Icon,
+  Alert01Icon as HugeAlert01Icon,
+  TableIcon as HugeTableIcon,
+  ChevronDownIcon as HugeChevronDownIcon,
+  ChevronRightIcon as HugeChevronRightIcon,
 } from '@hugeicons/core-free-icons';
 
 export interface IconProps extends React.SVGProps<SVGSVGElement> {
@@ -220,8 +225,8 @@ export const ArrowLeft01Icon = createIcon(HugeArrowLeft01Icon);
 export const ArrowRight01Icon = createIcon(HugeArrowRight01Icon);
 export const ArrowDown01Icon = createIcon(HugeArrowDown01Icon);
 export const ArrowUp01Icon = createIcon(HugeArrowUp01Icon);
-export const ChevronRightIcon = createIcon(HugeArrowRight01Icon);
-export const ChevronDownIcon = createIcon(HugeArrowDown01Icon);
+export const ChevronRightIcon = createIcon(HugeChevronRightIcon);
+export const ChevronDownIcon = createIcon(HugeChevronDownIcon);
 export const BookOpen01Icon = createIcon(HugeBookOpen01Icon);
 export const MoreVerticalIcon = createIcon(HugeMoreVerticalIcon);
 export const LinkSquare02Icon = createIcon(HugeLinkSquare02Icon);
@@ -232,42 +237,8 @@ export const CheckmarkSquare02Icon = createIcon(HugeCheckmarkSquare02Icon);
 export const MinusSignIcon = createIcon(HugeMinusSignIcon);
 export const SquareIcon = createIcon(HugeSquareIcon);
 export const CancelCircleIcon = createIcon(HugeCancelCircleIcon);
-export const Alert02Icon = React.memo<IconProps>(({ size = 16, className = '', color = 'currentColor', strokeWidth = 1.5, ...props }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke={color}
-    strokeWidth={strokeWidth}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    {...props}
-  >
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    <path d="M12 8v4" />
-    <path d="M12 16h.01" />
-  </svg>
-));
-export const AlertTriangleIcon = React.memo<IconProps>(({ size = 16, className = '', color = 'currentColor', strokeWidth = 1.5, ...props }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke={color}
-    strokeWidth={strokeWidth}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    {...props}
-  >
-    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-    <line x1="12" y1="9" x2="12" y2="13" />
-    <line x1="12" y1="17" x2="12.01" y2="17" />
-  </svg>
-));
+export const Alert02Icon = createIcon(HugeAlert02Icon);
+export const AlertTriangleIcon = createIcon(HugeAlert01Icon);
 export const Brain02Icon = createIcon(HugeBrain02Icon);
 
 export const Calendar01Icon = createIcon(HugeCalendar01Icon);
@@ -331,30 +302,6 @@ export const LayersIcon = createIcon(HugeLayers01Icon);
 export const StickyNote02Icon = createIcon(HugeStickyNote02Icon);
 export const UserIcon = createIcon(HugeUserIcon);
 
-export const ChevronsUpDownIcon = React.memo<IconProps>(({
-  size = 14,
-  className = '',
-  color = 'currentColor',
-  strokeWidth = 1.75,
-  ...props
-}) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke={color}
-    strokeWidth={strokeWidth}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    {...props}
-  >
-    <path d="m7 15 5 5 5-5" />
-    <path d="m7 9 5-5 5 5" />
-  </svg>
-));
-
 export const EyedropperIcon = createIcon(HugeColorPickerIcon);
 export const SplitRightIcon = createIcon(HugeSquareSplitHorizontalIcon);
 export const SplitDownIcon = createIcon(HugeSquareSplitVerticalIcon);
@@ -393,12 +340,17 @@ export const Heading601Icon = createIcon(HugeHeading06Icon);
 export const Menu01Icon = createIcon(HugeMenu01Icon);
 export const TextFootnoteIcon = createIcon(HugeTextFootnoteIcon);
 export const TextSelectionIcon = createIcon(HugeTextSelectionIcon);
+export const TableIcon = createIcon(HugeTableIcon);
 
-export const TableIcon = React.memo<IconProps>(({
-  size = 16,
+/**
+ * Custom dual-stacked chevrons indicator.
+ * Preserved as an intentional custom path since @hugeicons/core-free-icons does not offer an identical stacked glyph.
+ */
+export const ChevronsUpDownIcon = React.memo<IconProps>(({
+  size = 14,
   className = '',
   color = 'currentColor',
-  strokeWidth = 1.5,
+  strokeWidth = 1.75,
   ...props
 }) => (
   <svg
@@ -413,13 +365,113 @@ export const TableIcon = React.memo<IconProps>(({
     className={className}
     {...props}
   >
-    <rect x="3" y="3" width="18" height="18" rx="2" />
-    <path d="M3 9h18" />
-    <path d="M3 15h18" />
-    <path d="M9 3v18" />
-    <path d="M15 3v18" />
+    <path d="m7 15 5 5 5-5" />
+    <path d="m7 9 5-5 5 5" />
   </svg>
 ));
+
+/**
+ * Native OS Titlebar Control: Minimize (Windows 11 caption style)
+ */
+export const WindowMinimizeIcon = React.memo<IconProps>(({
+  size = 10,
+  className = '',
+  color = 'currentColor',
+  ...props
+}) => (
+  <svg width={size} height="1" viewBox="0 0 10 1" fill={color} className={className} {...props}>
+    <rect width="10" height="1" />
+  </svg>
+));
+
+/**
+ * Native OS Titlebar Control: Maximize (Windows 11 caption style)
+ */
+export const WindowMaximizeIcon = React.memo<IconProps>(({
+  size = 10,
+  className = '',
+  color = 'currentColor',
+  strokeWidth = 1,
+  ...props
+}) => (
+  <svg width={size} height={size} viewBox="0 0 10 10" fill="none" stroke={color} strokeWidth={strokeWidth} className={className} {...props}>
+    <rect x="0.5" y="0.5" width="9" height="9" />
+  </svg>
+));
+
+/**
+ * Native OS Titlebar Control: Restore (Windows 11 caption style)
+ */
+export const WindowRestoreIcon = React.memo<IconProps>(({
+  size = 10,
+  className = '',
+  color = 'currentColor',
+  strokeWidth = 1,
+  ...props
+}) => (
+  <svg width={size} height={size} viewBox="0 0 10 10" fill="none" stroke={color} strokeWidth={strokeWidth} className={className} {...props}>
+    <rect x="0.5" y="2.5" width="7" height="7" />
+    <path d="M 2.5 2.5 L 2.5 0.5 L 9.5 0.5 L 9.5 7.5 L 7.5 7.5" />
+  </svg>
+));
+
+/**
+ * Native OS Titlebar Control: Close (Windows 11 caption style)
+ */
+export const WindowCloseIcon = React.memo<IconProps>(({
+  size = 10,
+  className = '',
+  color = 'currentColor',
+  strokeWidth = 1.2,
+  ...props
+}) => (
+  <svg width={size} height={size} viewBox="0 0 10 10" fill="none" stroke={color} strokeWidth={strokeWidth} className={className} {...props}>
+    <path d="M 0 0 L 10 10 M 10 0 L 0 10" />
+  </svg>
+));
+
+export interface RenderHugeIconSvgOptions {
+  size?: number | string;
+  color?: string;
+  strokeWidth?: number | string;
+  className?: string;
+  style?: string;
+}
+
+/**
+ * Converts any HugeIcon definition tuple array into standard standalone SVG HTML markup.
+ * Designed for non-React contexts (ProseMirror gutter fold widgets, native DOM drag tooltips, canvas).
+ */
+export function renderHugeIconSvg(
+  iconDef: any,
+  options: RenderHugeIconSvgOptions = {}
+): string {
+  const size = options.size ?? 16;
+  const color = options.color ?? 'currentColor';
+  const strokeWidth = options.strokeWidth ?? 1.5;
+  const classNameAttr = options.className ? ` class="${options.className}"` : '';
+  const styleAttr = options.style ? ` style="${options.style}"` : '';
+
+  if (!Array.isArray(iconDef)) {
+    return '';
+  }
+
+  const innerMarkup = iconDef
+    .map(([tag, attrs]: [string, Record<string, any>]) => {
+      const attrStrings = Object.entries(attrs || {})
+        .filter(([k]) => k !== 'key')
+        .map(([k, v]) => {
+          const attrName = k.replace(/([A-Z])/g, '-$1').toLowerCase();
+          const attrVal = k === 'stroke' && v === 'currentColor' ? color : v;
+          return `${attrName}="${attrVal}"`;
+        })
+        .join(' ');
+      return `<${tag} ${attrStrings}/>`;
+    })
+    .join('');
+
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"${classNameAttr}${styleAttr}>${innerMarkup}</svg>`;
+}
 
 
 

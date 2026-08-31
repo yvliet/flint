@@ -30,6 +30,10 @@ import {
   Copy01Icon,
   Store01Icon,
   BookOpen01Icon,
+  WindowMinimizeIcon,
+  WindowMaximizeIcon,
+  WindowRestoreIcon,
+  WindowCloseIcon,
 } from '@/components/common/Icons';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useDocumentStore } from '@/store/documentStore';
@@ -3074,9 +3078,7 @@ export const SettingsWindowContent: React.FC<SettingsWindowContentProps> = React
                 className="h-full w-11 hover:bg-[var(--flint-bg-card-hover,#252525)] text-[var(--flint-text-muted,#888)] hover:text-[var(--flint-text-primary)] flex items-center justify-center cursor-pointer transition-colors"
                 title="Minimize"
               >
-                <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor">
-                  <rect width="10" height="1" />
-                </svg>
+                <WindowMinimizeIcon />
               </button>
               <button
                 type="button"
@@ -3088,16 +3090,7 @@ export const SettingsWindowContent: React.FC<SettingsWindowContentProps> = React
                 className="h-full w-11 hover:bg-[var(--flint-bg-card-hover,#252525)] text-[var(--flint-text-muted,#888)] hover:text-[var(--flint-text-primary)] flex items-center justify-center cursor-pointer transition-colors"
                 title={isMaximized ? 'Restore' : 'Maximize'}
               >
-                {isMaximized ? (
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-                    <rect x="0.5" y="2.5" width="7" height="7" />
-                    <path d="M 2.5 2.5 L 2.5 0.5 L 9.5 0.5 L 9.5 7.5 L 7.5 7.5" />
-                  </svg>
-                ) : (
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-                    <rect x="0.5" y="0.5" width="9" height="9" />
-                  </svg>
-                )}
+                {isMaximized ? <WindowRestoreIcon /> : <WindowMaximizeIcon />}
               </button>
             </>
           )}
@@ -3111,9 +3104,7 @@ export const SettingsWindowContent: React.FC<SettingsWindowContentProps> = React
             className="h-full w-11 hover:bg-[#e81123] text-[var(--flint-text-muted,#888)] hover:text-white flex items-center justify-center cursor-pointer transition-colors"
             title="Close"
           >
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
-              <path d="M 0 0 L 10 10 M 10 0 L 0 10" />
-            </svg>
+            <WindowCloseIcon />
           </button>
         </div>
       </header>
