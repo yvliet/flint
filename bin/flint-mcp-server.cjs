@@ -9,7 +9,8 @@
  *
  * Features:
  * - Zero-config multi-Hearth auto-discovery from system configuration
- * - Direct Markdown AST parsing and frontmatter extraction
+ * - Bulletproof file/folder path resolution (never overwrites folders, handles nested paths)
+ * - Smart upsert note writing (creates if new, updates in place preserving frontmatter if existing)
  * - JSON-RPC 2.0 stdio protocol compliance (MCP 2024-11-05 spec)
  * - Full-text note search, CRUD, wikilinks, tasks, FSRS flashcards, cascades, and bookmarks
  *
@@ -89,7 +90,7 @@ function scanMarkdownFiles(dirPath, baseDir = dirPath) {
     const fullPath = path.join(dirPath, entry.name);
     const relPath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
 
-    if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+    if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name.toLowerCase() === '.trash') continue;
 
     if (entry.isDirectory()) {
       results.push({
@@ -157,16 +158,95 @@ function serializeFrontmatter(properties, body) {
 
 function readNoteFile(notePath) {
   if (!fs.existsSync(notePath)) return null;
-  const raw = fs.readFileSync(notePath, 'utf8');
-  const { properties, body } = parseFrontmatter(raw);
-  return { raw, properties, body };
+  try {
+    const stat = fs.statSync(notePath);
+    if (stat.isDirectory()) return null;
+    const raw = fs.readFileSync(notePath, 'utf8');
+    const { properties, body } = parseFrontmatter(raw);
+    return { raw, properties, body };
+  } catch (e) {
+    return null;
+  }
 }
 
 function writeNoteFile(notePath, content, properties) {
+  if (fs.existsSync(notePath)) {
+    const stat = fs.statSync(notePath);
+    if (stat.isDirectory()) {
+      throw new Error(`Cannot write note: Target path "${notePath}" is an existing directory, not a markdown file.`);
+    }
+  }
+
   const fullContent = properties ? serializeFrontmatter(properties, content) : content;
   const dir = path.dirname(notePath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(notePath, fullContent, 'utf8');
+}
+
+/**
+ * Robustly resolves a note identifier or path to an exact file on disk.
+ * Handles nested subfolders, bare titles, and rejects folder matches.
+ */
+function resolveNoteFile(targetIdentifier, activePath) {
+  if (!targetIdentifier) return null;
+  const raw = String(targetIdentifier).trim();
+  const normalized = raw.replace(/\\/g, '/');
+  const cleanId = normalized.replace(/\.md$/i, '');
+
+  const allItems = scanMarkdownFiles(activePath);
+  const onlyNotes = allItems.filter((f) => !f.isFolder);
+  const onlyFolders = allItems.filter((f) => f.isFolder);
+
+  // 1. Direct path check (e.g. '02 Projects/Flint.md' or 'Flint.md')
+  const directPath = path.isAbsolute(raw) ? raw : path.join(activePath, raw.endsWith('.md') ? raw : `${raw}.md`);
+  if (fs.existsSync(directPath)) {
+    const stat = fs.statSync(directPath);
+    if (!stat.isDirectory()) {
+      const rel = path.relative(activePath, directPath).replace(/\\/g, '/');
+      return {
+        isFolder: false,
+        fullPath: directPath,
+        relativePath: rel,
+        title: path.basename(directPath, '.md'),
+        id: rel.replace(/\.md$/i, ''),
+      };
+    }
+  }
+
+  // 2. Exact match on relativePath or ID
+  const exactMatch = onlyNotes.find(
+    (f) =>
+      f.id.toLowerCase() === cleanId.toLowerCase() ||
+      f.relativePath.toLowerCase() === normalized.toLowerCase() ||
+      f.relativePath.toLowerCase() === `${cleanId}.md`.toLowerCase()
+  );
+  if (exactMatch) return exactMatch;
+
+  // 3. Match on note title (ignoring case)
+  const titleMatch = onlyNotes.find(
+    (f) =>
+      f.title.toLowerCase() === cleanId.toLowerCase() ||
+      f.title.toLowerCase() === path.basename(cleanId).toLowerCase()
+  );
+  if (titleMatch) return titleMatch;
+
+  // 4. Check if the target is actually a folder
+  const folderMatch = onlyFolders.find(
+    (f) =>
+      f.id.toLowerCase() === cleanId.toLowerCase() ||
+      f.title.toLowerCase() === cleanId.toLowerCase() ||
+      f.relativePath.toLowerCase() === normalized.toLowerCase()
+  );
+  if (folderMatch) {
+    return {
+      isFolder: true,
+      fullPath: folderMatch.fullPath,
+      relativePath: folderMatch.relativePath,
+      title: folderMatch.title,
+    };
+  }
+
+  return null;
 }
 
 // ── MCP Tool Definitions & Handlers ──
@@ -328,100 +408,133 @@ const TOOLS = [
     parameters: {
       type: 'object',
       properties: {
-        documentId: { type: 'string', description: 'Title or relative path of the note' },
+        documentId: { type: 'string', description: 'Title or relative path of the note (e.g. "Meeting Notes" or "02 Projects/Flint.md")' },
       },
       required: ['documentId'],
     },
     handler: async ({ documentId }) => {
       const activePath = getActiveHearthPath();
-      const cleanId = String(documentId).replace(/\.md$/i, '');
-      const possiblePaths = [
-        path.join(activePath, `${cleanId}.md`),
-        path.join(activePath, cleanId),
-      ];
+      const resolved = resolveNoteFile(documentId, activePath);
 
-      for (const p of possiblePaths) {
-        const note = readNoteFile(p);
+      if (resolved && resolved.isFolder) {
+        throw new Error(`Cannot read note: "${documentId}" is a folder (${resolved.relativePath}). Use flint_list_all_notes to see its files.`);
+      }
+
+      if (resolved && !resolved.isFolder) {
+        const note = readNoteFile(resolved.fullPath);
         if (note) {
           return {
-            id: cleanId,
-            title: path.basename(cleanId),
+            id: resolved.id,
+            title: resolved.title,
+            relativePath: resolved.relativePath,
             content: note.body,
             properties: note.properties,
           };
         }
       }
 
-      // Search recursively
-      const files = scanMarkdownFiles(activePath);
-      const found = files.find((f) => f.title.toLowerCase() === cleanId.toLowerCase() || f.id.toLowerCase() === cleanId.toLowerCase());
-      if (found) {
-        const note = readNoteFile(found.fullPath);
-        return {
-          id: found.id,
-          title: found.title,
-          content: note ? note.body : '',
-          properties: note ? note.properties : {},
-        };
-      }
-
-      throw new Error(`Note "${documentId}" not found in Hearth.`);
+      throw new Error(`Note "${documentId}" not found in Hearth "${path.basename(activePath)}".`);
     },
   },
 
-  // 7. flint_create_note
+  // 7. flint_create_note (Smart Upsert)
   {
     name: 'flint_create_note',
-    description: 'Create a new markdown note in the active Hearth with optional initial content and frontmatter.',
+    description: 'Create a new markdown note or update an existing note in the active Hearth. Handles nested folder paths safely.',
     parameters: {
       type: 'object',
       properties: {
-        title: { type: 'string', description: 'Title of the note' },
+        title: { type: 'string', description: 'Title or path of the note (e.g. "My Note" or "02 Projects/Roadmap")' },
         content: { type: 'string', description: 'Markdown body content' },
         properties: { type: 'object', description: 'Optional YAML frontmatter key-value pairs' },
-        folder: { type: 'string', description: 'Optional folder path inside Hearth' },
+        folder: { type: 'string', description: 'Optional target folder inside Hearth' },
       },
       required: ['title'],
     },
     handler: async ({ title, content = '', properties = {}, folder = '' }) => {
       const activePath = getActiveHearthPath();
-      const sanitizedTitle = String(title).replace(/[\\/:*?"<>|]/g, '_');
-      const targetDir = folder ? path.join(activePath, folder) : activePath;
-      const targetPath = path.join(targetDir, `${sanitizedTitle}.md`);
+      let rawTitle = String(title).trim().replace(/\.md$/i, '');
 
-      writeNoteFile(targetPath, content, properties);
+      // Check if title has a folder component in it
+      if (rawTitle.includes('/') || rawTitle.includes('\\')) {
+        const parts = rawTitle.replace(/\\/g, '/').split('/');
+        const fileName = parts.pop();
+        const subFolder = parts.join('/');
+        folder = folder ? path.join(folder, subFolder).replace(/\\/g, '/') : subFolder;
+        rawTitle = fileName;
+      }
+
+      const targetDir = folder ? path.join(activePath, folder) : activePath;
+      const targetPath = path.join(targetDir, `${rawTitle}.md`);
+
+      // Check if target is accidentally pointing to a directory
+      if (fs.existsSync(targetPath) && fs.statSync(targetPath).isDirectory()) {
+        throw new Error(`Cannot create note: "${targetPath}" is an existing directory.`);
+      }
+
+      // Check if note already exists at this location or anywhere with this title
+      const existing = resolveNoteFile(folder ? `${folder}/${rawTitle}` : rawTitle, activePath);
+      let finalPath = targetPath;
+      let existingProps = {};
+
+      if (existing && !existing.isFolder) {
+        finalPath = existing.fullPath;
+        const read = readNoteFile(finalPath);
+        if (read) existingProps = read.properties || {};
+      }
+
+      const mergedProps = { ...existingProps, ...properties };
+      writeNoteFile(finalPath, content, mergedProps);
+
+      const relPath = path.relative(activePath, finalPath).replace(/\\/g, '/');
       return {
-        message: `Created note "${sanitizedTitle}" successfully.`,
-        title: sanitizedTitle,
-        path: path.relative(activePath, targetPath).replace(/\\/g, '/'),
+        message: existing ? `Updated existing note "${rawTitle}" successfully.` : `Created note "${rawTitle}" successfully.`,
+        title: rawTitle,
+        relativePath: relPath,
       };
     },
   },
 
-  // 8. flint_update_note
+  // 8. flint_update_note (Safe Update)
   {
     name: 'flint_update_note',
-    description: 'Update the content body of an existing note.',
+    description: 'Update the content body of an existing note. Resolves note title or relative path safely without touching folders.',
     parameters: {
       type: 'object',
       properties: {
-        documentId: { type: 'string', description: 'Title or relative path of the note' },
+        documentId: { type: 'string', description: 'Title or relative path of the note to update' },
         content: { type: 'string', description: 'New markdown body content' },
+        properties: { type: 'object', description: 'Optional frontmatter properties to merge' },
       },
       required: ['documentId', 'content'],
     },
-    handler: async ({ documentId, content }) => {
+    handler: async ({ documentId, content, properties }) => {
       const activePath = getActiveHearthPath();
-      const cleanId = String(documentId).replace(/\.md$/i, '');
-      const files = scanMarkdownFiles(activePath);
-      const found = files.find((f) => f.title.toLowerCase() === cleanId.toLowerCase() || f.id.toLowerCase() === cleanId.toLowerCase());
+      const resolved = resolveNoteFile(documentId, activePath);
 
-      const targetPath = found ? found.fullPath : path.join(activePath, `${cleanId}.md`);
-      const existing = readNoteFile(targetPath);
-      const props = existing ? existing.properties : {};
+      if (resolved && resolved.isFolder) {
+        throw new Error(`Cannot update note: "${documentId}" is a folder. To write a note inside it, use flint_create_note({ title: "NoteName", folder: "${resolved.relativePath}" }).`);
+      }
 
-      writeNoteFile(targetPath, content, props);
-      return { message: `Updated note "${documentId}" successfully.` };
+      if (!resolved) {
+        // If not found, create it safely at root or path specified
+        const cleanName = String(documentId).replace(/\.md$/i, '');
+        const targetPath = path.join(activePath, `${cleanName}.md`);
+        writeNoteFile(targetPath, content, properties || {});
+        return {
+          message: `Note "${documentId}" did not exist, created new note at "${path.relative(activePath, targetPath).replace(/\\/g, '/')}".`,
+        };
+      }
+
+      const existing = readNoteFile(resolved.fullPath);
+      const existingProps = existing ? existing.properties : {};
+      const mergedProps = properties ? { ...existingProps, ...properties } : existingProps;
+
+      writeNoteFile(resolved.fullPath, content, mergedProps);
+      return {
+        message: `Updated note "${resolved.title}" (${resolved.relativePath}) successfully.`,
+        relativePath: resolved.relativePath,
+      };
     },
   },
 
@@ -439,12 +552,15 @@ const TOOLS = [
     },
     handler: async ({ documentId }) => {
       const activePath = getActiveHearthPath();
-      const files = scanMarkdownFiles(activePath);
-      const found = files.find((f) => f.title.toLowerCase() === String(documentId).toLowerCase() || f.id.toLowerCase() === String(documentId).toLowerCase());
+      const resolved = resolveNoteFile(documentId, activePath);
 
-      if (found && fs.existsSync(found.fullPath)) {
-        fs.unlinkSync(found.fullPath);
-        return { message: `Deleted note "${documentId}".` };
+      if (resolved && resolved.isFolder) {
+        throw new Error(`Cannot delete: "${documentId}" is a folder, not a note.`);
+      }
+
+      if (resolved && fs.existsSync(resolved.fullPath)) {
+        fs.unlinkSync(resolved.fullPath);
+        return { message: `Deleted note "${resolved.title}" (${resolved.relativePath}).` };
       }
       throw new Error(`Note "${documentId}" not found.`);
     },
@@ -453,11 +569,11 @@ const TOOLS = [
   // 10. flint_list_all_notes
   {
     name: 'flint_list_all_notes',
-    description: 'List all documents and folders in the active Hearth.',
+    description: 'List all documents and folders in the active Hearth with is_folder and relative_path indicators.',
     parameters: {
       type: 'object',
       properties: {
-        limit: { type: 'number', description: 'Max documents to return (default: 100)' },
+        limit: { type: 'number', description: 'Max items to return (default: 100)' },
       },
     },
     handler: async ({ limit = 100 }) => {
@@ -618,6 +734,11 @@ function sendResponse(id, result, error = null) {
     response.result = result;
   }
   process.stdout.write(JSON.stringify(response) + '\n');
+}
+
+function sendNotification(method, params = {}) {
+  const msg = { jsonrpc: '2.0', method, params };
+  process.stdout.write(JSON.stringify(msg) + '\n');
 }
 
 const rl = readline.createInterface({
