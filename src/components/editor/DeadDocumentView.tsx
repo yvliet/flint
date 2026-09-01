@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { PageSubHeader } from '@/components/layout/PageSubHeader';
-import { Alert02Icon, RotateCcwIcon, PlusSignIcon, Cancel01Icon } from '@/components/common/Icons';
+import { Alert02Icon } from '@/components/common/Icons';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useDocumentStore } from '@/store/documentStore';
 
@@ -22,7 +22,6 @@ export const DeadDocumentView: React.FC<DeadDocumentViewProps> = React.memo(({
   const restoreFromTrash = useDocumentStore((s) => s.restoreFromTrash);
   const createNewNote = useDocumentStore((s) => s.createNewNote);
   const showToast = useWorkspaceStore((s) => s.showToast);
-  const closeTabInPane = useWorkspaceStore((s) => s.closeTabInPane);
   const openTabInPane = useWorkspaceStore((s) => s.openTabInPane);
 
   const matchingTrashItem = useMemo(() => {
@@ -65,17 +64,9 @@ export const DeadDocumentView: React.FC<DeadDocumentViewProps> = React.memo(({
     }
   }, [createNewNote, displayTitle, openTabInPane, paneId, tabId, showToast]);
 
-  const handleCloseTab = useCallback((e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    closeTabInPane(paneId, tabId);
-  }, [closeTabInPane, paneId, tabId]);
-
   return (
     <div className="w-full h-full flex flex-col min-w-0 overflow-hidden font-sans select-none bg-[var(--flint-bg-main)]">
-      {/* 1. Subheader with warning banner and quick action */}
+      {/* 1. View Subheader with interactive inline action link */}
       <PageSubHeader
         title={displayTitle}
         icon={<Alert02Icon size={14} className="text-amber-400" />}
@@ -110,46 +101,8 @@ export const DeadDocumentView: React.FC<DeadDocumentViewProps> = React.memo(({
         showDocOptions={false}
       />
 
-      {/* 2. Main Body: Actionable Dead Tab Recovery Card */}
-      <div className="flex-1 w-full h-full flex flex-col items-center justify-center select-none p-6 gap-3 bg-[var(--flint-bg-main)]">
-        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-1">
-          <Alert02Icon size={24} className="text-amber-400" />
-        </div>
-        <div className="text-sm font-semibold text-[var(--flint-text-primary)]">
-          "{displayTitle}" was deleted
-        </div>
-        <div className="text-xs text-[var(--flint-text-muted)] max-w-sm text-center leading-relaxed">
-          This file is no longer available in your Hearth. You can restore it from trash, recreate it as a new note, or close this tab.
-        </div>
-        <div className="flex items-center gap-2 mt-2">
-          {matchingTrashItem && (
-            <button
-              type="button"
-              onClick={handleRestore}
-              className="px-3.5 py-1.5 bg-[var(--flint-accent)] hover:brightness-110 active:brightness-95 text-white text-xs font-semibold rounded-[5px] shadow-[0_1px_2px_rgba(0,0,0,0.35)] border border-black/20 cursor-pointer transition-all flex items-center gap-1.5"
-            >
-              <RotateCcwIcon size={12} />
-              <span>Restore from trash</span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={handleRecreate}
-            className="px-3.5 py-1.5 bg-[#2a2a2a] hover:bg-[#333333] active:bg-[#222222] border border-[#383838] hover:border-[#484848] text-[#dcddde] hover:text-white text-xs font-medium rounded-[5px] shadow-[0_1px_2px_rgba(0,0,0,0.35)] cursor-pointer transition-all flex items-center gap-1.5"
-          >
-            <PlusSignIcon size={12} />
-            <span>Recreate note</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleCloseTab}
-            className="px-3.5 py-1.5 bg-[#2a2a2a] hover:bg-[#333333] active:bg-[#222222] border border-[#383838] hover:border-[#484848] text-[#dcddde] hover:text-white text-xs font-medium rounded-[5px] shadow-[0_1px_2px_rgba(0,0,0,0.35)] cursor-pointer transition-all flex items-center gap-1.5"
-          >
-            <Cancel01Icon size={12} />
-            <span>Close tab</span>
-          </button>
-        </div>
-      </div>
+      {/* 2. Empty Body (clean empty space matching DisabledExtensionView) */}
+      <div className="flex-1 w-full h-full" />
     </div>
   );
 });
