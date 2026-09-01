@@ -177,6 +177,22 @@ const baseSlashItems: SlashItem[] = [
       editor.chain().focus().deleteRange(range).insertContent('$$').setTextSelection(range.from + 1).run();
     },
   },
+  {
+    title: 'Link',
+    description: 'Insert markdown link [text](url)',
+    icon: 'link',
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertContent('[](url)').setTextSelection(range.from + 1).run();
+    },
+  },
+  {
+    title: 'WikiLink',
+    description: 'Link to another note [[title]]',
+    icon: 'link',
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertContent('[[]]').setTextSelection(range.from + 2).run();
+    },
+  },
 ];
 
 function extractLinkTargetFromEvent(
@@ -202,6 +218,21 @@ function extractLinkTargetFromEvent(
       null;
     if (targetTitle) {
       return { type: 'wikilink', target: targetTitle };
+    }
+  }
+
+  // 1b. Direct DOM check for .md-link
+  const mdLinkElem =
+    targetElem?.closest('.md-link') ||
+    (document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null)?.closest('.md-link');
+
+  if (mdLinkElem) {
+    const targetUrl =
+      mdLinkElem.getAttribute('data-link-url') ||
+      mdLinkElem.getAttribute('href') ||
+      null;
+    if (targetUrl) {
+      return { type: 'url', target: targetUrl };
     }
   }
 
@@ -675,6 +706,27 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = React.memo(({
           }
           return false;
         },
+      },
+      handlePaste: (view, event) => {
+        const text = event.clipboardData?.getData('text/plain')?.trim();
+        if (text && (text.startsWith('http://') || text.startsWith('https://') || text.startsWith('mailto:'))) {
+          const { state } = view;
+          const { selection } = state;
+          if (!selection.empty) {
+            const selText = state.doc.textBetween(selection.from, selection.to);
+            if (selText && !selText.startsWith('[') && !selText.includes('\n')) {
+              event.preventDefault();
+              const tr = state.tr.replaceWith(
+                selection.from,
+                selection.to,
+                state.schema.text(`[${selText}](${text})`)
+              );
+              view.dispatch(tr);
+              return true;
+            }
+          }
+        }
+        return false;
       },
       handleClick: (view, pos, event) => {
         const info = extractLinkTargetFromEvent(editor, event as MouseEvent);
