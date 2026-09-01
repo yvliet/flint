@@ -574,6 +574,9 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = React.memo(({
                   setSlashMenuProps(null);
                   return true;
                 }
+                if (!props.items || props.items.length === 0) {
+                  return false;
+                }
                 return slashMenuRef.current?.onKeyDown(props) || false;
               },
               onExit: () => {
@@ -644,6 +647,9 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = React.memo(({
                 if (props.event.key === 'Escape') {
                   setWikiProps(null);
                   return true;
+                }
+                if (!props.items || props.items.length === 0) {
+                  return false;
                 }
                 return wikiPopupRef.current?.onKeyDown(props) || false;
               },
