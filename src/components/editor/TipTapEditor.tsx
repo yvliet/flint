@@ -27,6 +27,7 @@ import { NumberedListBehavior } from './extensions/numbered-list-behavior';
 import { Fold, FoldPluginKey } from './extensions/fold';
 import { SearchAndReplace } from './extensions/search-and-replace';
 import { SmartTabIndent } from './extensions/smart-tab-indent';
+import { TableExitBehavior } from './extensions/table-exit-behavior';
 import { SlashMenu } from './SlashMenu';
 import { WikiLinkPopup } from './WikiLinkPopup';
 import { MathKeyboard } from './MathKeyboard';
@@ -495,6 +496,7 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = React.memo(({
       TableRow,
       TableHeader,
       TableCell,
+      TableExitBehavior,
       Highlight.configure({ multicolor: true }),
       Link.configure({
         openOnClick: true,
@@ -1555,10 +1557,19 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = React.memo(({
   return (
     <div
       onClick={(e) => {
-        if (editor && !editor.isFocused && editable) {
+        if (editor && editable) {
           const target = e.target as HTMLElement;
-          if (target === e.currentTarget || target.classList.contains('ProseMirror')) {
-            editor.commands.focus('end');
+          if (target === e.currentTarget || target.classList.contains('ProseMirror') || target.classList.contains('tiptap') || target.classList.contains('editor-canvas')) {
+            const { state, schema } = editor;
+            if (state.doc.lastChild && state.doc.lastChild.type.name === 'table') {
+              const insertPos = state.doc.content.size;
+              const tr = state.tr.insert(insertPos, schema.nodes.paragraph.create());
+              tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
+              editor.view.dispatch(tr);
+              editor.view.focus();
+            } else if (!editor.isFocused) {
+              editor.commands.focus('end');
+            }
           }
         }
       }}
