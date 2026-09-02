@@ -674,7 +674,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = React.memo(({ pane = 'm
                       <React.Fragment key="breadcrumb-middle-ellipsis">
                         <span
                           onClick={handleFolderClick(immediateParentFolder.id, (immediateParentFolder as any).onClick)}
-                          title={middleFoldersTooltip ? `${middleFoldersTooltip} (Click to reveal in file tree)` : 'Click to reveal in file tree'}
+                          title={middleFoldersTooltip || undefined}
                           className="text-[#666] hover:text-[#999] hover:bg-[var(--flint-bg-card-hover)] px-1 py-0.5 rounded cursor-pointer transition-colors font-medium select-none"
                         >
                           ...
