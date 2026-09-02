@@ -188,19 +188,6 @@ const baseSlashItems: SlashItem[] = [
     },
   },
   {
-    title: 'Table',
-    description: 'Insert an interactive table grid',
-    icon: 'table',
-    command: ({ editor, range, rows = 3, cols = 3 }: any) => {
-      editor
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .insertTable({ rows: rows || 3, cols: cols || 3, withHeaderRow: true })
-        .run();
-    },
-  },
-  {
     title: 'WikiLink',
     description: 'Link to another note [[title]]',
     icon: 'link',
@@ -400,17 +387,23 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = React.memo(({
   const { showContextMenu } = useAppContextMenu();
   const showToast = useWorkspaceStore((s) => s.showToast);
 
-  // Merge extension slash commands
+  // Merge extension slash commands with base items, deduplicating by lowercase title
   const extensionSlashCommands = useMemo(() => app.editor.getSlashCommands(), [app.editor, extensionList]);
-  const slashItems: SlashItem[] = useMemo(() => [
-    ...baseSlashItems,
-    ...extensionSlashCommands.map((p: any) => ({
-      title: p.title,
-      description: p.description,
-      icon: typeof p.icon === 'string' ? (p.icon as any) : 'card',
-      command: p.command,
-    })),
-  ], [extensionSlashCommands]);
+  const slashItems: SlashItem[] = useMemo(() => {
+    const map = new Map<string, SlashItem>();
+    for (const item of baseSlashItems) {
+      map.set(item.title.toLowerCase(), item);
+    }
+    for (const p of extensionSlashCommands) {
+      map.set(p.title.toLowerCase(), {
+        title: p.title,
+        description: p.description,
+        icon: typeof p.icon === 'string' ? (p.icon as any) : p.icon,
+        command: p.command,
+      });
+    }
+    return Array.from(map.values());
+  }, [extensionSlashCommands]);
 
   const handleNavigateToWikiLink = useCallback(
     (rawTarget: string, isSplit: boolean = false) => {
