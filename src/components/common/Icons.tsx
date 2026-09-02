@@ -346,6 +346,7 @@ export const TextSelectionIcon = createIcon(HugeTextSelectionIcon);
 export const TextClearIcon = createIcon(HugeTextClearIcon);
 export const TableIcon = createIcon(HugeTableIcon);
 export const ArrowExpandIcon = createIcon(HugeArrowExpandIcon);
+export const ArrowExpand02Icon = ArrowExpandIcon;
 
 /**
  * Custom dual-stacked chevrons indicator.
