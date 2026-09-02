@@ -17,7 +17,7 @@ import {
   PlusSignIcon,
   Search01Icon,
   ArrowShrink02Icon,
-  ArrowExpandIcon,
+  ArrowExpand01Icon,
   FileAddIcon,
   FolderAddIcon,
   CancelCircleIcon,
@@ -147,7 +147,7 @@ export const CascadeView: React.FC = React.memo(() => {
         {
           id: 'collapse-expand-all',
           title: areAllCollapsed ? 'Expand all books' : 'Collapse all books',
-          icon: areAllCollapsed ? <ArrowExpandIcon size={14} /> : <ArrowShrink02Icon size={14} />,
+          icon: areAllCollapsed ? <ArrowExpand01Icon size={14} /> : <ArrowShrink02Icon size={14} />,
           onClick: handleToggleCollapseExpandAll,
         },
       ];
@@ -196,7 +196,7 @@ export const CascadeView: React.FC = React.memo(() => {
           title={areAllCollapsed ? 'Expand all books' : 'Collapse all books'}
           className="p-1.5 rounded hover:bg-[var(--flint-bg-card-hover)] text-[var(--flint-text-muted)] hover:text-[var(--flint-text-primary)] transition-colors cursor-pointer"
         >
-          {areAllCollapsed ? <ArrowExpandIcon size={14} /> : <ArrowShrink02Icon size={14} />}
+          {areAllCollapsed ? <ArrowExpand01Icon size={14} /> : <ArrowShrink02Icon size={14} />}
         </button>
       </div>
 

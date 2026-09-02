@@ -6,7 +6,7 @@ import {
   FolderAddIcon,
   Sorting01Icon,
   ArrowShrink02Icon,
-  ArrowExpandIcon,
+  ArrowExpand01Icon,
   Search01Icon,
   HelpCircleIcon,
   Settings02Icon,
@@ -475,7 +475,7 @@ export const LeftSidebar: React.FC = React.memo(() => {
       {
         id: 'root-collapse-all',
         title: areAllFoldersCollapsed ? 'Expand all folders' : 'Collapse all folders',
-        icon: areAllFoldersCollapsed ? <ArrowExpandIcon size={14} /> : <ArrowShrink02Icon size={14} />,
+        icon: areAllFoldersCollapsed ? <ArrowExpand01Icon size={14} /> : <ArrowShrink02Icon size={14} />,
         onClick: areAllFoldersCollapsed ? expandAllFolders : collapseAllFolders,
       },
     ];
@@ -575,7 +575,7 @@ export const LeftSidebar: React.FC = React.memo(() => {
             title={areAllFoldersCollapsed ? 'Expand all folders' : 'Collapse all folders'}
             className="p-1.5 rounded hover:bg-[var(--flint-bg-card-hover)] text-[var(--flint-text-muted)] hover:text-[var(--flint-text-primary)] transition-colors cursor-pointer"
           >
-            {areAllFoldersCollapsed ? <ArrowExpandIcon size={14} /> : <ArrowShrink02Icon size={14} />}
+            {areAllFoldersCollapsed ? <ArrowExpand01Icon size={14} /> : <ArrowShrink02Icon size={14} />}
           </button>
         </div>
       )}
