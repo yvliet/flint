@@ -86,7 +86,7 @@ const FileTreeNodeComponent: React.FC<FileTreeNodeProps> = ({
   const toggleDocSelection = useDocumentStore((s) => s.toggleDocSelection);
   const selectDocRange = useDocumentStore((s) => s.selectDocRange);
   const showBrokenEmbedIndicators = useSettingsStore((s) => s.showBrokenEmbedIndicators);
-  const brokenEmbedDocIds = useDocumentStore((s) => s.brokenEmbedDocIds);
+  const brokenEmbedCounts = useDocumentStore((s) => s.brokenEmbedCounts);
 
   const openConfirmDialog = useWorkspaceStore((s) => s.openConfirmDialog);
   const openInputDialog = useWorkspaceStore((s) => s.openInputDialog);
@@ -192,18 +192,23 @@ const FileTreeNodeComponent: React.FC<FileTreeNodeProps> = ({
     return prefixes.length === 1 ? prefixes[0] : <>{prefixes}</>;
   }, [decorators, item, activeTab, app, isOpen]);
 
-  const hasBrokenEmbed = useMemo(() => {
-    if (!showBrokenEmbedIndicators || brokenEmbedDocIds.size === 0) return false;
-    if (!isFolder) {
-      return brokenEmbedDocIds.has(item.id);
-    }
-    for (const brokenId of brokenEmbedDocIds) {
-      if (isDescendant(brokenId, item.id, allDocs)) {
-        return true;
+  const folderBrokenDocCount = useMemo(() => {
+    if (!isFolder || !showBrokenEmbedIndicators) return 0;
+    let count = 0;
+    for (const brokenId of Object.keys(brokenEmbedCounts)) {
+      if (brokenEmbedCounts[brokenId] > 0 && isDescendant(brokenId, item.id, allDocs)) {
+        count++;
       }
     }
-    return false;
-  }, [showBrokenEmbedIndicators, brokenEmbedDocIds, isFolder, item.id, allDocs]);
+    return count;
+  }, [isFolder, showBrokenEmbedIndicators, brokenEmbedCounts, item.id, allDocs]);
+
+  const fileBrokenCount = useMemo(() => {
+    if (isFolder || !showBrokenEmbedIndicators) return 0;
+    return brokenEmbedCounts[item.id] || 0;
+  }, [isFolder, showBrokenEmbedIndicators, brokenEmbedCounts, item.id]);
+
+  const hasBrokenEmbed = isFolder ? folderBrokenDocCount > 0 : fileBrokenCount > 0;
 
   const treeNodeSuffix = useMemo(() => {
     const suffixes: React.ReactNode[] = [];
@@ -227,11 +232,12 @@ const FileTreeNodeComponent: React.FC<FileTreeNodeProps> = ({
     if (hasBrokenEmbed) {
       suffixes.push(
         <BrokenEmbedIndicator
-          key="broken-embed-dot"
+          key="broken-embed-badge"
+          documentId={item.id}
           isFolder={isFolder}
-          hasBroken={true}
+          folderBrokenDocCount={folderBrokenDocCount}
           position="right"
-          className="ml-1"
+          className="ml-1.5"
         />
       );
     }

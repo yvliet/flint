@@ -125,7 +125,9 @@ interface DocumentState {
 
   /** Set of document IDs that contain unresolved `![[...]]` embed references. */
   brokenEmbedDocIds: Set<string>;
-  /** Scans all documents for broken embed references and updates brokenEmbedDocIds. */
+  /** Map of document ID to count of unresolved embed references in that document. */
+  brokenEmbedCounts: Record<string, number>;
+  /** Scans all documents for broken embed references and updates brokenEmbedDocIds and brokenEmbedCounts. */
   recomputeBrokenEmbeds: () => void;
 }
 
@@ -146,6 +148,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   selectedDocIds: [],
   lastSelectedDocId: null,
   brokenEmbedDocIds: new Set<string>(),
+  brokenEmbedCounts: {},
 
   loadInitialData: async (options?: { showLoading?: boolean }) => {
     const shouldShowLoading = options?.showLoading ?? (get().documents.length === 0);
@@ -1169,12 +1172,14 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
     const embedRegex = /!\[\[([^\]|#]+)/g;
     const broken = new Set<string>();
+    const counts: Record<string, number> = {};
 
     for (const doc of docs) {
       if (doc.is_folder || !doc.content_json) continue;
       let match: RegExpExecArray | null;
       embedRegex.lastIndex = 0;
       const content = doc.content_json;
+      let docBrokenCount = 0;
       while ((match = embedRegex.exec(content)) !== null) {
         const rawTarget = match[1].trim();
         if (!rawTarget) continue;
@@ -1183,15 +1188,24 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         const targetClean = rawTarget.toLowerCase();
         const targetWithoutExt = targetClean.replace(/\.[a-zA-Z0-9]+$/, '');
         if (!knownTitles.has(targetClean) && !knownTitles.has(targetWithoutExt) && !knownIds.has(rawTarget)) {
-          broken.add(doc.id);
-          break;
+          docBrokenCount++;
         }
+      }
+      if (docBrokenCount > 0) {
+        counts[doc.id] = docBrokenCount;
+        broken.add(doc.id);
       }
     }
 
-    const prev = get().brokenEmbedDocIds;
-    if (prev.size !== broken.size || ![...broken].every((id) => prev.has(id))) {
-      set({ brokenEmbedDocIds: broken });
+    const prevCounts = get().brokenEmbedCounts;
+    const prevKeys = Object.keys(prevCounts);
+    const nextKeys = Object.keys(counts);
+    const countsChanged =
+      prevKeys.length !== nextKeys.length ||
+      nextKeys.some((k) => prevCounts[k] !== counts[k]);
+
+    if (countsChanged) {
+      set({ brokenEmbedCounts: counts, brokenEmbedDocIds: broken });
     }
   },
 }));

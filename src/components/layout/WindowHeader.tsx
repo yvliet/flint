@@ -424,7 +424,7 @@ const WindowHeaderTopPaneTabs: React.FC<WindowHeaderTopPaneTabsProps> = React.me
                   >
                     {displayTitle}
                   </span>
-                  <BrokenEmbedIndicator documentId={tab.document_id} position="bottom" />
+                  <BrokenEmbedIndicator documentId={tab.document_id} position="bottom" className="ml-1" />
                 </div>
 
                 {canCloseTab && (

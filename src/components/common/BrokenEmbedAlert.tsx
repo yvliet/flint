@@ -1,47 +1,65 @@
 import React from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useDocumentStore } from '@/store/documentStore';
+import { ItemNoticeBadge, NoticeBadgeVariant } from './ItemNoticeBadge';
 
-export const BROKEN_EMBED_TOOLTIP_NOTE =
-  'Missing or broken attachment/embed detected in this note.\nYou can disable this alert in Settings > Files and links.';
-
-export const BROKEN_EMBED_TOOLTIP_FOLDER =
-  'This folder contains notes with missing or broken attachments/embeds.\nYou can disable this alert in Settings > Files and links.';
+export function getBrokenEmbedTooltip(count: number, isFolder = false): string {
+  if (isFolder) {
+    return count === 1
+      ? 'Contains 1 note with missing or broken attachments/embeds.\nYou can disable this alert in Settings > Files and links.'
+      : `Contains ${count} notes with missing or broken attachments/embeds.\nYou can disable this alert in Settings > Files and links.`;
+  }
+  return count === 1
+    ? '1 missing or broken attachment/embed detected in this note.\nYou can disable this alert in Settings > Files and links.'
+    : `${count} missing or broken attachments/embeds detected in this note.\nYou can disable this alert in Settings > Files and links.`;
+}
 
 export interface BrokenEmbedIndicatorProps {
   documentId?: string | null;
   isFolder?: boolean;
-  hasBroken?: boolean;
+  folderBrokenDocCount?: number;
+  variant?: NoticeBadgeVariant;
   position?: 'top' | 'bottom' | 'left' | 'right';
   className?: string;
 }
 
 /**
- * Reusable indicator that alerts the user when an embedded image/file in a note
+ * Indicator that alerts the user when an embedded image/file in a note
  * (or within any note in a folder) is missing or broken.
+ * Uses the modular ItemNoticeBadge with numeric counts by default.
  */
 export const BrokenEmbedIndicator: React.FC<BrokenEmbedIndicatorProps> = React.memo(
-  ({ documentId, isFolder = false, hasBroken, position = 'bottom', className = '' }) => {
+  ({
+    documentId,
+    isFolder = false,
+    folderBrokenDocCount,
+    variant = 'count',
+    position = 'bottom',
+    className = '',
+  }) => {
     const show = useSettingsStore((s) => s.showBrokenEmbedIndicators);
-    const brokenIds = useDocumentStore((s) => s.brokenEmbedDocIds);
+    const brokenCounts = useDocumentStore((s) => s.brokenEmbedCounts);
 
     if (!show) return null;
 
-    const isVisible =
-      hasBroken !== undefined ? hasBroken : Boolean(documentId && brokenIds.has(documentId));
+    const count = isFolder
+      ? (folderBrokenDocCount || 0)
+      : (documentId ? brokenCounts[documentId] || 0 : 0);
 
-    if (!isVisible) return null;
+    if (count <= 0) return null;
 
     return (
-      <span
-        data-tooltip={isFolder ? BROKEN_EMBED_TOOLTIP_FOLDER : BROKEN_EMBED_TOOLTIP_NOTE}
-        data-tooltip-position={position}
-        style={{ width: 6, height: 6, minWidth: 6, minHeight: 6, maxWidth: 6, maxHeight: 6, aspectRatio: '1 / 1' }}
-        className={`w-[6px] h-[6px] min-w-[6px] min-h-[6px] max-w-[6px] max-h-[6px] aspect-square rounded-full bg-amber-400 shrink-0 select-none cursor-help ${className}`}
-        aria-label="Broken embed alert"
+      <ItemNoticeBadge
+        variant={variant}
+        count={count}
+        tone="warning"
+        tooltip={getBrokenEmbedTooltip(count, isFolder)}
+        position={position}
+        className={className}
       />
     );
   }
 );
 
 BrokenEmbedIndicator.displayName = 'BrokenEmbedIndicator';
+
