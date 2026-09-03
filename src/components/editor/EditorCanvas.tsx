@@ -801,7 +801,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = React.memo(({ pane = 'm
                           {renderBreadcrumbIcon(topFolder, 0)}
                           <span className="truncate">{topFolder.title}</span>
                         </span>
-                        <span className="text-[#444] select-none mx-1 shrink-0">/</span>
+                        <span className="text-[#444] select-none mx-1.5 shrink-0">/</span>
                       </React.Fragment>
                     )}
 
@@ -815,13 +815,13 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = React.memo(({ pane = 'm
                         >
                           ...
                         </span>
-                        <span className="text-[#444] select-none mx-1 shrink-0">/</span>
+                        <span className="text-[#444] select-none mx-1.5 shrink-0">/</span>
                       </React.Fragment>
                     )}
 
                     {/* Active File Title with in-place Inline Rename */}
                     {isEditingSubheader ? (
-                      <div className="text-[#dcddde] font-normal px-1.5 py-0.5 inline-flex items-center gap-1.5 min-w-0 max-w-[480px]">
+                      <div className="text-[#dcddde] font-normal py-0.5 inline-flex items-center gap-1.5 min-w-0 max-w-[480px]">
                         {renderBreadcrumbIcon(parts[parts.length - 1], parts.length - 1)}
                         <div className="relative inline-flex items-center min-w-[30px] max-w-[450px]">
                           {/* Invisible sizer text with exact matching typography */}
@@ -880,7 +880,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = React.memo(({ pane = 'm
                           setIsEditingSubheader(true);
                         }}
                         title={isLocked ? 'Note is locked (Read-only)' : 'Click to rename'}
-                        className={`text-[#dcddde] font-normal px-1.5 py-0.5 inline-flex items-center gap-1.5 min-w-0 max-w-full ${
+                        className={`text-[#dcddde] font-normal py-0.5 inline-flex items-center gap-1.5 min-w-0 max-w-full ${
                           isLocked ? 'cursor-default' : 'cursor-text'
                         }`}
                       >
