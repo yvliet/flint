@@ -19,6 +19,7 @@ import { getIconifyIconDef } from './iconifyCatalog';
 import { HugeIconRenderer } from '@/components/common/IconPicker';
 import { EmojiRenderer, EmojiStyle, EMOJI_STYLE_LABELS } from '@/components/common/emoji';
 import { ToggleSwitch } from '@/components/common/ToggleSwitch';
+import { CustomSelect } from '@/components/common/CustomSelect';
 import {
   Delete02Icon,
   RotateCcwIcon,
@@ -185,7 +186,7 @@ export const IconifySettingsTab: React.FC = () => {
           <div className="flex flex-col pr-4">
             <span className="text-[13px] font-normal text-[#dcddde]">Show icon next to note title in editor</span>
             <span className="text-[11px] text-[#777] mt-0.5">
-              Display the assigned custom icon to the left of the note title in the editor. Notes without icons remain completely undisturbed.
+              Display the assigned custom icon to the left of the note title in the editor.
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -218,7 +219,7 @@ export const IconifySettingsTab: React.FC = () => {
               </div>
             </div>
             <span className="text-[11px] text-[#777] mt-0.5">
-              Choose the rendering set for emoji icons. Native (System) uses zero network resources.
+              Choose the rendering set for emoji icons.
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -232,17 +233,17 @@ export const IconifySettingsTab: React.FC = () => {
                 <RotateCcwIcon size={13} />
               </button>
             )}
-            <select
+            <CustomSelect<EmojiStyle>
               value={emojiStyle}
-              onChange={(e) => setEmojiStyle(e.target.value as EmojiStyle)}
-              className="bg-[#181818] border border-[#333] text-[12px] text-white rounded-md px-2 py-1 outline-none cursor-pointer focus:border-[var(--flint-accent,#ea580c)]"
-            >
-              <option value="native">Native (System)</option>
-              <option value="twemoji">Twemoji</option>
-              <option value="apple">Apple Emoji</option>
-              <option value="google">Google Noto</option>
-              <option value="whatsapp">WhatsApp Emoji</option>
-            </select>
+              onChange={setEmojiStyle}
+              options={[
+                { value: 'native', label: 'Native (System)' },
+                { value: 'twemoji', label: 'Twemoji' },
+                { value: 'apple', label: 'Apple Emoji' },
+                { value: 'google', label: 'Google Noto' },
+                { value: 'whatsapp', label: 'WhatsApp Emoji' },
+              ]}
+            />
           </div>
         </div>
 
