@@ -821,12 +821,12 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = React.memo(({ pane = 'm
 
                     {/* Active File Title with in-place Inline Rename */}
                     {isEditingSubheader ? (
-                      <div className="inline-flex items-center gap-1.5 min-w-0 max-w-[480px]">
+                      <div className="text-[#dcddde] font-normal px-1.5 py-0.5 inline-flex items-center gap-1.5 min-w-0 max-w-[480px]">
                         {renderBreadcrumbIcon(parts[parts.length - 1], parts.length - 1)}
                         <div className="relative inline-flex items-center min-w-[30px] max-w-[450px]">
-                          {/* Invisible sizer text with exact matching typography and padding */}
+                          {/* Invisible sizer text with exact matching typography */}
                           <span
-                            className="invisible px-1.5 py-0.5 whitespace-pre font-normal text-[12px] font-sans pointer-events-none select-none"
+                            className="invisible whitespace-pre font-normal text-[12px] font-sans pointer-events-none select-none"
                             aria-hidden="true"
                           >
                             {title || 'Untitled'}
@@ -856,7 +856,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = React.memo(({ pane = 'm
                                 setIsEditingSubheader(false);
                               }
                             }}
-                            className="absolute inset-0 w-full h-full bg-transparent border-none outline-none p-0 m-0 px-1.5 py-0.5 text-left text-[12px] text-[#dcddde] font-normal caret-[#888] selection:bg-[#505560] selection:text-white font-sans"
+                            className="absolute inset-0 w-full h-full bg-transparent border-none outline-none p-0 m-0 text-left text-[12px] text-[#dcddde] font-normal caret-[#888] selection:bg-[#505560] selection:text-white font-sans"
                           />
 
                           {/* Duplicate Name Warning Tooltip */}
