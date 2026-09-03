@@ -711,7 +711,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = React.memo(({ pane = 'm
         {/* Center: Truly Absolute Centered Document Breadcrumb Title (Click to rename live in-place) */}
         <div className="absolute inset-x-0 inset-y-0 flex items-center justify-center pointer-events-none px-20">
           {currentDoc ? (
-            <div className="pointer-events-auto text-[12px] max-w-2xl px-1.5 py-0.5 text-center select-none flex items-center justify-center min-w-0 overflow-hidden">
+            <div className="pointer-events-auto text-[12px] max-w-3xl px-1.5 py-0.5 text-center select-none flex items-center justify-center min-w-0 overflow-hidden">
               {(() => {
                 const parts = breadcrumbItems;
                 const hasFolders = parts.length > 1;
@@ -773,7 +773,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = React.memo(({ pane = 'm
                         <span
                           onClick={handleFolderClick(topFolder.id, (topFolder as any).onClick)}
                           title={topFolder.title}
-                          className={`text-[#666] hover:text-[#999] cursor-pointer inline-flex items-center gap-1.5 shrink min-w-0 max-w-[140px] overflow-hidden ${
+                          className={`text-[#666] hover:text-[#999] cursor-pointer inline-flex items-center gap-1.5 shrink min-w-0 max-w-[260px] overflow-hidden ${
                             (topFolder as any).className || ''
                           }`}
                         >
