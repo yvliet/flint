@@ -19,11 +19,10 @@ export const EMOJI_STYLE_LABELS: Record<EmojiStyle, string> = {
 };
 
 /**
- * High-performance, optically-normalized Emoji renderer supporting Native OS rendering by default,
+ * High-performance Emoji renderer supporting Native OS rendering by default,
  * and CDN-based crisp vector/image rendering for Twemoji, Apple Emoji, Google Noto, and WhatsApp Emoji.
  *
- * Ensures 100% consistent sizing across all 5 styles by utilizing an exact bounding container
- * and optical scale calibration so no style appears oversized or undersized relative to others.
+ * Ensures consistent optical sizing across styles without clipping native glyphs.
  */
 export const EmojiRenderer = React.memo<EmojiRendererProps>(({
   emoji,
@@ -40,32 +39,20 @@ export const EmojiRenderer = React.memo<EmojiRendererProps>(({
     setUseAlternativeHex(false);
   }, [emoji, style]);
 
-  const containerStyle: React.CSSProperties = {
-    width: `${size}px`,
-    height: `${size}px`,
-    minWidth: `${size}px`,
-    minHeight: `${size}px`,
-    maxWidth: `${size}px`,
-    maxHeight: `${size}px`,
-  };
-
   // 1. Native OS (System Default) or Fallback on Error:
   if (style === 'native' || hasError) {
-    // Calibrate font-size to 1.1x to offset native emoji font glyph internal metrics
-    const nativeFontSize = Math.max(10, Math.round(size * 1.1));
-
     return (
       <span
-        className={`inline-flex items-center justify-center shrink-0 select-none overflow-hidden leading-none text-center font-["Apple_Color_Emoji","Segoe_UI_Emoji","Segoe_UI_Symbol","Noto_Color_Emoji",sans-serif] ${className}`}
+        className={`inline-flex items-center justify-center shrink-0 select-none leading-none text-center font-["Apple_Color_Emoji","Segoe_UI_Emoji","Segoe_UI_Symbol","Noto_Color_Emoji",sans-serif] ${className}`}
         style={{
-          ...containerStyle,
-          fontSize: `${nativeFontSize}px`,
+          width: `${size}px`,
+          height: `${size}px`,
+          fontSize: `${size}px`,
+          lineHeight: 1,
         }}
         aria-label={emoji}
       >
-        <span className="flex items-center justify-center w-full h-full leading-none pointer-events-none translate-y-[-0.5px]">
-          {emoji}
-        </span>
+        {emoji}
       </span>
     );
   }
@@ -92,22 +79,19 @@ export const EmojiRenderer = React.memo<EmojiRendererProps>(({
 
   const handleError = () => {
     if (!useAlternativeHex && strippedHex !== rawHex) {
-      // Try alternative hex code format (with/without variation selector-16)
       setUseAlternativeHex(true);
     } else {
-      // Fallback gracefully to native system text
       setHasError(true);
     }
   };
 
-  // Optical scaling: Twemoji/Google vector art fills 100% of viewBox, so scaling to 95%
-  // matches the visual optical weight of Apple PNGs and native font glyphs
-  const imageDimension = Math.max(10, Math.round(size * 0.96));
-
   return (
     <span
-      className={`inline-flex items-center justify-center shrink-0 select-none overflow-hidden ${className}`}
-      style={containerStyle}
+      className={`inline-flex items-center justify-center shrink-0 select-none ${className}`}
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+      }}
       aria-label={emoji}
     >
       <img
@@ -116,11 +100,7 @@ export const EmojiRenderer = React.memo<EmojiRendererProps>(({
         draggable={false}
         decoding="async"
         onError={handleError}
-        className="object-contain block select-none pointer-events-none"
-        style={{
-          width: `${imageDimension}px`,
-          height: `${imageDimension}px`,
-        }}
+        className="w-full h-full object-contain block select-none pointer-events-none"
       />
     </span>
   );
