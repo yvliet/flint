@@ -41,13 +41,15 @@ export const EmojiRenderer = React.memo<EmojiRendererProps>(({
 
   // 1. Native OS (System Default) or Fallback on Error:
   if (style === 'native' || hasError) {
+    const nativeFontSize = Math.round(size * 0.88);
+
     return (
       <span
         className={`inline-flex items-center justify-center shrink-0 select-none leading-none text-center font-["Apple_Color_Emoji","Segoe_UI_Emoji","Segoe_UI_Symbol","Noto_Color_Emoji",sans-serif] ${className}`}
         style={{
           width: `${size}px`,
           height: `${size}px`,
-          fontSize: `${size}px`,
+          fontSize: `${nativeFontSize}px`,
           lineHeight: 1,
         }}
         aria-label={emoji}

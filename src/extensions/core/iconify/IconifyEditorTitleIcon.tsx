@@ -41,7 +41,7 @@ export const IconifyEditorTitleIcon: React.FC<IconifyEditorTitleIconProps> = ({
   // Title heading style in EditorCanvas is calc(var(--editor-font-size, 12px) * 2.3) with leading-tight (1.25).
   // We match the button to the exact title line-box height and the icon to the optical title height.
   const titleHeight = 'calc(var(--editor-font-size, 12px) * 2.3 * 1.25)';
-  const iconPixelSize = 32;
+  const iconPixelSize = 26;
 
   // 1. Emoji icon
   if (entry.iconId.startsWith('emoji:')) {
