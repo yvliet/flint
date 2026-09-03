@@ -20,7 +20,8 @@ import { DocumentItem } from '@/types';
 import { useDocumentStore } from '@/store/documentStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useSettingsStore } from '@/store/settingsStore';
-import { getUniqueTitleForMove, getDocumentPath } from '@/lib/db/documents';
+import { BrokenEmbedIndicator } from '@/components/common/BrokenEmbedAlert';
+import { getUniqueTitleForMove, getDocumentPath, isDescendant } from '@/lib/db/documents';
 import { FileSortOrder, sortDocuments } from '@/components/layout/LeftSidebar';
 import { useAppContextMenu, ContextMenuItem } from '@/components/common/ContextMenu';
 import { platform } from '@/lib/platform/platformAdapter';
@@ -84,6 +85,8 @@ const FileTreeNodeComponent: React.FC<FileTreeNodeProps> = ({
   const selectSingleDoc = useDocumentStore((s) => s.selectSingleDoc);
   const toggleDocSelection = useDocumentStore((s) => s.toggleDocSelection);
   const selectDocRange = useDocumentStore((s) => s.selectDocRange);
+  const showBrokenEmbedIndicators = useSettingsStore((s) => s.showBrokenEmbedIndicators);
+  const brokenEmbedDocIds = useDocumentStore((s) => s.brokenEmbedDocIds);
 
   const openConfirmDialog = useWorkspaceStore((s) => s.openConfirmDialog);
   const openInputDialog = useWorkspaceStore((s) => s.openInputDialog);
@@ -189,26 +192,53 @@ const FileTreeNodeComponent: React.FC<FileTreeNodeProps> = ({
     return prefixes.length === 1 ? prefixes[0] : <>{prefixes}</>;
   }, [decorators, item, activeTab, app, isOpen]);
 
+  const hasBrokenEmbed = useMemo(() => {
+    if (!showBrokenEmbedIndicators || brokenEmbedDocIds.size === 0) return false;
+    if (!isFolder) {
+      return brokenEmbedDocIds.has(item.id);
+    }
+    for (const brokenId of brokenEmbedDocIds) {
+      if (isDescendant(brokenId, item.id, allDocs)) {
+        return true;
+      }
+    }
+    return false;
+  }, [showBrokenEmbedIndicators, brokenEmbedDocIds, isFolder, item.id, allDocs]);
+
   const treeNodeSuffix = useMemo(() => {
-    if (decorators.length === 0) return null;
-    const ctx = {
-      doc: item,
-      activeTab,
-      app,
-      isOpen,
-    };
     const suffixes: React.ReactNode[] = [];
-    for (const d of decorators) {
-      if (d.renderSuffix) {
-        const res = d.renderSuffix(item, ctx);
-        if (res !== undefined && res !== null) {
-          suffixes.push(<React.Fragment key={d.id}>{res}</React.Fragment>);
+    if (decorators.length > 0) {
+      const ctx = {
+        doc: item,
+        activeTab,
+        app,
+        isOpen,
+      };
+      for (const d of decorators) {
+        if (d.renderSuffix) {
+          const res = d.renderSuffix(item, ctx);
+          if (res !== undefined && res !== null) {
+            suffixes.push(<React.Fragment key={d.id}>{res}</React.Fragment>);
+          }
         }
       }
     }
+
+    if (hasBrokenEmbed) {
+      suffixes.push(
+        <BrokenEmbedIndicator
+          key="broken-embed-dot"
+          isFolder={isFolder}
+          hasBroken={true}
+          position="right"
+          className="ml-1"
+        />
+      );
+    }
+
     if (suffixes.length === 0) return null;
-    return suffixes.length === 1 ? suffixes[0] : <>{suffixes}</>;
-  }, [decorators, item, activeTab, app, isOpen]);
+    return suffixes.length === 1 ? suffixes[0] : <div className="flex items-center shrink-0">{suffixes}</div>;
+  }, [decorators, item, activeTab, app, isOpen, hasBrokenEmbed, isFolder]);
 
   const isEditing = (!isEditingSuppressed && isStoreEditing) || localIsEditing;
 
