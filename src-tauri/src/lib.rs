@@ -1,5 +1,6 @@
 mod vault;
 mod icon_tint;
+mod db;
 
 use std::path::Path;
 use std::sync::Mutex;
@@ -7,8 +8,14 @@ use std::time::Duration;
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use tauri::{Emitter, Manager};
 use vault::{load_config, AppState};
+
 #[tauri::command]
 fn set_accent_icon(app_handle: tauri::AppHandle, accent_color: String) -> Result<(), String> {
+    let clean = accent_color.trim().to_lowercase();
+    // If accent is default or unset, preserve the sharp native Windows multi-size .ico resource
+    if clean.is_empty() || clean == "#ea580c" || clean == "default" {
+        return Ok(());
+    }
     let icon = icon_tint::create_accent_tauri_image(&accent_color);
     for (_, window) in app_handle.webview_windows() {
         let _ = window.set_icon(icon.clone());
@@ -27,6 +34,7 @@ pub fn run() {
         .manage(AppState {
             config: Mutex::new(initial_config),
         })
+        .manage(db::DbState::new())
         .invoke_handler(tauri::generate_handler![
             vault::get_current_vault,
             vault::set_current_vault,
@@ -64,10 +72,25 @@ pub fn run() {
             vault::register_global_shortcut,
             vault::unregister_global_shortcut,
             set_accent_icon,
+            db::flint_db_init,
+            db::flint_db_query,
+            db::flint_db_execute,
+            db::flint_db_transaction,
+            db::flint_db_supports_fts5,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
             let vault_to_watch = initial_vault.clone();
+
+            // Auto-initialize native SQLite database on cold startup
+            let _ = db::flint_db_init(app.state::<db::DbState>(), Some(initial_vault.clone()));
+
+            #[cfg(debug_assertions)]
+            {
+                if let Some(main_win) = app.get_webview_window("main") {
+                    let _ = main_win.open_devtools();
+                }
+            }
 
             // Initialize general-purpose global hotkey loop
             vault::init_global_hotkeys(handle.clone());
