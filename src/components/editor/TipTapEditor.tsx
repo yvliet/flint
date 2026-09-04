@@ -901,6 +901,10 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = React.memo(({
         hardBreak: {
           keepMarks: true,
         },
+        history: {
+          depth: 50,
+          newGroupDelay: 500,
+        },
         bold: false,
         italic: false,
         strike: false,

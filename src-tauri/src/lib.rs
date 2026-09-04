@@ -86,14 +86,6 @@ pub fn run() {
             for (_, window) in app.webview_windows() {
                 let _ = window.set_icon(initial_icon.clone());
             }
-
-            #[cfg(debug_assertions)]
-            {
-                if let Some(main_win) = app.get_webview_window("main") {
-                    let _ = main_win.open_devtools();
-                }
-            }
-
             // Initialize general-purpose global hotkey loop
             vault::init_global_hotkeys(handle.clone());
 
