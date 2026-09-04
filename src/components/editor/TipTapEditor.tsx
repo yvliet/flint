@@ -857,7 +857,7 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = React.memo(({
                         command: async (item: WikiLinkItem) => {
                           if (item.isNew) {
                             if (!item.title || !item.title.trim()) return;
-                            const newDoc = await createNewNote(item.title.trim());
+                            const newDoc = await createNewNote(item.title.trim(), null, 'base', false);
                             if (newDoc) {
                               props.command({ title: newDoc.title, id: newDoc.id });
                             }

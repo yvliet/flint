@@ -1064,6 +1064,13 @@ li[data-type="taskItem"][data-checked="true"] > div {
   display: none !important;
 }
 
+/* Live Preview & Reading View List Item Hanging Indent (Google Docs style)
+   Aligns wrapped lines flush beneath the first character of the list item text */
+.flint-list-hanging {
+  padding-left: var(--flint-hang-indent, 0px) !important;
+  text-indent: calc(-1 * var(--flint-hang-indent, 0px)) !important;
+}
+
 /* Plain Text List Prefix Dimming (Numbers & Dashes/Bullets - Obsidian style) */
 .flint-numbered-prefix,
 .flint-list-prefix {
