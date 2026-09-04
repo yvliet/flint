@@ -16,12 +16,12 @@
 
 ### The Open-Source, High-Performance Knowledge Engine & AI-Native Obsidian Alternative
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=flat-square)](LICENSE)
-[![Runtime](https://img.shields.io/badge/Runtime-Tauri%20v2%20%7C%20Electron%20%7C%20Web-orange?style=flat-square)](src-tauri)
-[![Frontend](https://img.shields.io/badge/Frontend-React%2019%20%2B%20TypeScript%205.7-61dafb?style=flat-square)](package.json)
-[![Database](https://img.shields.io/badge/Database-SQLite%20WASM%20%2B%20FTS5%20(BM25)-003B57?style=flat-square)](src/lib/db)
-[![Protocol](https://img.shields.io/badge/Protocol-Model%20Context%20Protocol%20(MCP)-8A2BE2?style=flat-square)](bin/flint-mcp-server.cjs)
-[![Styling](https://img.shields.io/badge/Styling-Tailwind%20CSS%203.4-38bdf8?style=flat-square)](tailwind.config.js)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?logo=gnu&logoColor=white)](LICENSE)
+[![Runtime](https://img.shields.io/badge/Runtime-Tauri%20v2%20%7C%20Electron%20%7C%20Web-ea580c.svg?logo=tauri&logoColor=white)](src-tauri)
+[![Frontend](https://img.shields.io/badge/Frontend-React%2019%20%2B%20TypeScript%205.7-20232a.svg?logo=react&logoColor=61dafb)](package.json)
+[![Database](https://img.shields.io/badge/Database-SQLite%20WASM%20%2B%20FTS5%20(BM25)-003B57.svg?logo=sqlite&logoColor=white)](src/lib/db)
+[![Protocol](https://img.shields.io/badge/Protocol-Model%20Context%20Protocol%20(MCP)-7c3aed.svg)](bin/flint-mcp-server.cjs)
+[![Styling](https://img.shields.io/badge/Styling-Tailwind%20CSS%203.4-06b6d4.svg?logo=tailwindcss&logoColor=white)](tailwind.config.js)
 
 [Overview](#overview) •
 [Architecture](#architectural-overview) •
