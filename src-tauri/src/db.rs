@@ -70,6 +70,10 @@ pub const SQL_SCHEMA_STATEMENTS: &[&str] = &[
         content_hash TEXT NOT NULL,
         indexed_at INTEGER NOT NULL
     );"#,
+    r#"CREATE TABLE IF NOT EXISTS flint_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    );"#,
     r#"CREATE INDEX IF NOT EXISTS idx_docs_parent_id ON documents(parent_id);"#,
     r#"CREATE INDEX IF NOT EXISTS idx_docs_title ON documents(title);"#,
     r#"CREATE INDEX IF NOT EXISTS idx_docs_is_folder ON documents(is_folder);"#,
@@ -179,14 +183,15 @@ pub fn open_vault_db(vault_path: &str) -> Result<Connection, String> {
         .map_err(|e| format!("Failed to open SQLite database at {:?}: {}", db_path, e))?;
 
     // Performance Invariants: WAL mode, memory temp store, 64MB page cache
-    // Note: PRAGMA journal_mode = WAL returns a row result; we use pragma_update to avoid 'Execute returned results' error.
-    let _ = conn.pragma_update(None, "journal_mode", "WAL");
+    // Note: PRAGMAs that return row results (such as journal_mode and mmap_size)
+    // must consume their returned row via query_row to avoid ExecuteReturnedResults errors.
+    let _ = conn.query_row("PRAGMA journal_mode = WAL;", [], |_| Ok(()));
+    let _ = conn.query_row("PRAGMA mmap_size = 268435456;", [], |_| Ok(()));
     conn.execute_batch(
         r#"
         PRAGMA synchronous = NORMAL;
         PRAGMA foreign_keys = ON;
         PRAGMA temp_store = MEMORY;
-        PRAGMA mmap_size = 268435456;
         PRAGMA cache_size = -64000;
         "#,
     )
@@ -215,6 +220,21 @@ pub fn flint_db_init(
     vault_path: Option<String>,
 ) -> Result<bool, String> {
     let path_str = vault_path.unwrap_or_default();
+    let target_db_path = get_vault_db_path(&path_str);
+
+    // Fast-path: If the connection is already initialized for the exact same database file,
+    // avoid redundant file-reopen, PRAGMA re-application, and schema iteration.
+    {
+        let guard = state.conn.lock();
+        let current_path = state.active_path.lock();
+        if guard.is_some() {
+            let current_db_path = get_vault_db_path(&current_path);
+            if current_db_path == target_db_path {
+                return Ok(true);
+            }
+        }
+    }
+
     let conn = open_vault_db(&path_str)?;
 
     *state.conn.lock() = Some(conn);
@@ -279,9 +299,18 @@ pub fn flint_db_execute(
 
     let raw_params = params.unwrap_or_default();
     if raw_params.is_empty() {
-        conn.execute_batch(&sql)
-            .map(|_| 1)
-            .map_err(|e| format!("Execute batch error: {} | SQL: {}", e, sql))
+        match conn.execute_batch(&sql) {
+            Ok(_) => Ok(1),
+            Err(rusqlite::Error::ExecuteReturnedResults) => {
+                // Statements like PRAGMAs or RETURNING clauses that produce rows
+                // can be stepped through to completion
+                let mut stmt = conn.prepare(&sql).map_err(|e| format!("Execute prepare error: {} | SQL: {}", e, sql))?;
+                let mut rows = stmt.query([]).map_err(|e| format!("Execute query error: {} | SQL: {}", e, sql))?;
+                while let Some(_) = rows.next().map_err(|e| format!("Execute row error: {} | SQL: {}", e, sql))? {}
+                Ok(1)
+            }
+            Err(e) => Err(format!("Execute batch error: {} | SQL: {}", e, sql)),
+        }
     } else {
         let param_refs: Vec<rusqlite::types::ToSqlOutput<'_>> =
             raw_params.iter().map(json_to_sqlite_param).collect();
@@ -291,8 +320,16 @@ pub fn flint_db_execute(
             .map(|p| p as &dyn rusqlite::ToSql)
             .collect();
 
-        conn.execute(&sql, rusqlite_params.as_slice())
-            .map_err(|e| format!("Execute error: {} | SQL: {}", e, sql))
+        match conn.execute(&sql, rusqlite_params.as_slice()) {
+            Ok(count) => Ok(count),
+            Err(rusqlite::Error::ExecuteReturnedResults) => {
+                let mut stmt = conn.prepare(&sql).map_err(|e| format!("Execute prepare error: {} | SQL: {}", e, sql))?;
+                let mut rows = stmt.query(rusqlite_params.as_slice()).map_err(|e| format!("Execute query error: {} | SQL: {}", e, sql))?;
+                while let Some(_) = rows.next().map_err(|e| format!("Execute row error: {} | SQL: {}", e, sql))? {}
+                Ok(1)
+            }
+            Err(e) => Err(format!("Execute error: {} | SQL: {}", e, sql)),
+        }
     }
 }
 
@@ -318,8 +355,15 @@ pub fn flint_db_transaction(
             .map(|p| p as &dyn rusqlite::ToSql)
             .collect();
 
-        tx.execute(&q.sql, rusqlite_params.as_slice())
-            .map_err(|e| format!("Transaction statement error: {} | SQL: {}", e, q.sql))?;
+        match tx.execute(&q.sql, rusqlite_params.as_slice()) {
+            Ok(_) => {},
+            Err(rusqlite::Error::ExecuteReturnedResults) => {
+                let mut stmt = tx.prepare(&q.sql).map_err(|e| format!("Transaction prepare error: {} | SQL: {}", e, q.sql))?;
+                let mut rows = stmt.query(rusqlite_params.as_slice()).map_err(|e| format!("Transaction query error: {} | SQL: {}", e, q.sql))?;
+                while let Some(_) = rows.next().map_err(|e| format!("Transaction row error: {} | SQL: {}", e, q.sql))? {}
+            }
+            Err(e) => return Err(format!("Transaction statement error: {} | SQL: {}", e, q.sql)),
+        }
     }
 
     tx.commit()
@@ -331,4 +375,28 @@ pub fn flint_db_transaction(
 #[tauri::command]
 pub fn flint_db_supports_fts5() -> bool {
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_open_vault_db() {
+        let temp_dir = std::env::temp_dir().join("flint_test_db");
+        let res = open_vault_db(temp_dir.to_str().unwrap());
+        assert!(res.is_ok(), "open_vault_db failed: {:?}", res.err());
+    }
+
+    #[test]
+    fn test_icon_ico_entry_0_is_high_res() {
+        let ico_bytes = include_bytes!("../icons/icon.ico");
+        assert!(ico_bytes.len() > 22);
+        // In ICO format, Entry 0 starts at offset 6:
+        // byte 6 is width (0 represents 256px), byte 7 is height (0 represents 256px)
+        let w = if ico_bytes[6] == 0 { 256 } else { ico_bytes[6] as u32 };
+        let h = if ico_bytes[7] == 0 { 256 } else { ico_bytes[7] as u32 };
+        assert_eq!(w, 256, "Icon entry 0 must be 256px wide for crisp rendering");
+        assert_eq!(h, 256, "Icon entry 0 must be 256px high for crisp rendering");
+    }
 }

@@ -11,11 +11,6 @@ use vault::{load_config, AppState};
 
 #[tauri::command]
 fn set_accent_icon(app_handle: tauri::AppHandle, accent_color: String) -> Result<(), String> {
-    let clean = accent_color.trim().to_lowercase();
-    // If accent is default or unset, preserve the sharp native Windows multi-size .ico resource
-    if clean.is_empty() || clean == "#ea580c" || clean == "default" {
-        return Ok(());
-    }
     let icon = icon_tint::create_accent_tauri_image(&accent_color);
     for (_, window) in app_handle.webview_windows() {
         let _ = window.set_icon(icon.clone());
@@ -65,6 +60,7 @@ pub fn run() {
             vault::window_maximize,
             vault::window_close,
             vault::window_is_maximized,
+            vault::window_is_minimized,
             vault::window_start_dragging,
             vault::window_set_title,
             vault::notify_user_activity,
@@ -84,6 +80,12 @@ pub fn run() {
 
             // Auto-initialize native SQLite database on cold startup
             let _ = db::flint_db_init(app.state::<db::DbState>(), Some(initial_vault.clone()));
+
+            // Initialize sharp high-resolution window icon
+            let initial_icon = icon_tint::create_accent_tauri_image("#ea580c");
+            for (_, window) in app.webview_windows() {
+                let _ = window.set_icon(initial_icon.clone());
+            }
 
             #[cfg(debug_assertions)]
             {

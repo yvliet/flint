@@ -393,8 +393,9 @@ class PlatformAdapterImpl implements IPlatformAdapter {
           };
         }
         return { canceled: true };
-      } catch {
-        return await invoke('select_vault_folder');
+      } catch (e) {
+        console.warn('[PlatformAdapter] selectHearthFolder error:', e);
+        return { canceled: true };
       }
     }
     return { canceled: true };
@@ -500,8 +501,9 @@ class PlatformAdapterImpl implements IPlatformAdapter {
           return { canceled: false, path: selected };
         }
         return { canceled: true };
-      } catch {
-        return await invoke('select_parent_folder');
+      } catch (e) {
+        console.warn('[PlatformAdapter] selectParentFolder error:', e);
+        return { canceled: true };
       }
     }
     return { canceled: true };
