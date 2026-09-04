@@ -1637,6 +1637,8 @@ a.flint-btn::after {
 .flint-tab-guide {
   position: relative;
   display: inline;
+  line-height: inherit;
+  caret-color: var(--flint-text-primary, #ffffff);
 }
 
 .flint-indent-guides .flint-tab-guide::before,
@@ -1644,7 +1646,7 @@ a.flint-btn::after {
 .flint-tab-guide::before {
   content: '';
   position: absolute;
-  top: -1.05rem;
+  top: -0.85rem;
   bottom: -0.55rem;
   left: 0.25em; /* Default base position */
   width: 0;
@@ -1660,7 +1662,7 @@ a.flint-btn::after {
   bottom: -0.25em !important;
 }
 
-/* Number stem alignment: centered through stem of digit 1 and tabular digits (x=71px vs 67px = 4px = 0.25em) */
+/* Number stem alignment: centered through stem of digit 1 and tabular digits */
 .flint-indent-guides .flint-tab-guide-number::before,
 .tiptap-reading-view.flint-indent-guides .flint-tab-guide-number::before,
 .flint-tab-guide-number::before {
