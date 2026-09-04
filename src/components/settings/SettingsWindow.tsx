@@ -10,6 +10,7 @@ import {
   KeyIcon,
   PackageIcon,
   GlobeIcon,
+  PuzzleIcon,
   LinkSquare02Icon,
   Layout01Icon,
   Calendar01Icon,
@@ -2992,7 +2993,7 @@ export const SettingsWindowContent: React.FC<SettingsWindowContentProps> = React
     { id: 'files', label: 'Files and links', icon: <Folder01Icon size={14} />, keywords: ['files and links', 'files', 'links', 'trash', 'deleted', 'delete', 'hearth', 'vault', 'wikilink'] },
     { id: 'hotkeys', label: 'Hotkeys', icon: <KeyIcon size={14} />, keywords: ['hotkeys', 'shortcuts', 'keys', 'commands'] },
     { id: 'core-extensions', label: 'Built-in extensions', icon: <PackageIcon size={14} />, keywords: ['built-in extensions', 'core extensions', 'core plugins', 'plugins', 'modules', 'extensions'] },
-    { id: 'community-extensions', label: 'Community extensions', icon: <GlobeIcon size={14} />, keywords: ['community extensions', 'community plugins', 'plugins', 'marketplace', 'extensions'] },
+    { id: 'community-extensions', label: 'Community extensions', icon: <PuzzleIcon size={14} />, keywords: ['community extensions', 'community plugins', 'plugins', 'marketplace', 'extensions'] },
   ], []);
 
   const extensionList = useExtensionList();
@@ -3048,7 +3049,7 @@ export const SettingsWindowContent: React.FC<SettingsWindowContentProps> = React
           name: manifest.name,
           extensionId: manifest.id,
           pluginId: manifest.id,
-          icon: <GlobeIcon size={14} />,
+          icon: <PuzzleIcon size={14} />,
           render: () => (
             <div className="bg-[#202020] border border-[#2a2a2a] rounded-xl p-5 flex flex-col gap-3">
               <div>
@@ -3292,7 +3293,7 @@ export const SettingsWindowContent: React.FC<SettingsWindowContentProps> = React
                           : 'text-[var(--flint-text-secondary,#999)] hover:bg-[var(--flint-bg-sidebar-hover,#202020)] hover:text-[var(--flint-text-primary)]'
                       }`}
                     >
-                      <span className={isActive ? 'text-[var(--flint-text-primary)]' : 'text-[var(--flint-text-muted,#888)]'}>{tab.icon || <PackageIcon size={14} />}</span>
+                      <span className={isActive ? 'text-[var(--flint-text-primary)]' : 'text-[var(--flint-text-muted,#888)]'}>{tab.icon || <PuzzleIcon size={14} />}</span>
                       <span>{tab.name}</span>
                     </button>
                   );
