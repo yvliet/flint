@@ -10,7 +10,7 @@
   \  \::/      \  \:\/:/       \__\::/  \  \:\  ~~~  \__\/  \:\ 
    \  \:\       \  \::/        /__/:/    \  \:\           \  \:\
     \  \:\       \__\/         \__\/      \  \:\           \__\/
-     \__\/                                 \__\/                " width="560"/>
+     \__\/                                 \__\/                " width="502"/>
 
 ### The Open-Source, High-Performance Knowledge Engine & AI-Native Obsidian Alternative
 
