@@ -75,7 +75,7 @@ Flint separates user interface components, relational query indexes, physical di
 
 3. **Strict Native Core Isolation**:
    - Native core directories (`src/core`, `src/lib`, `src/store`, `src/components`, `src/types`, `src/sdk`) never import extension or plugin code.
-   - Built-in features (Backlinks, Canvas, Graph, Spaced Repetition, Journal, Tasks, Cascade Books, Iconify) interface exclusively through the public Flint SDK (`src/sdk`), IoC registries, and the typed `EventBus`.
+   - Core extensions (Backlinks, Canvas, Graph, Spaced Repetition, Journal, Tasks) and community extensions (such as Cascade Books and Iconify) interface exclusively through the public Flint SDK (`src/sdk`), IoC registries, and the typed `EventBus`.
 
 ---
 
@@ -154,10 +154,10 @@ Add Flint to your client's MCP configuration (e.g. `claude_desktop_config.json`)
 | **Web Clip Cleaner** | **Intelligent HTML-to-Markdown Paste Parser**. Automatically strips citation footnotes (e.g. `[1]`, `[cite]`) and converts HTML tags cleanly on paste. |
 | **Knowledge Graph View** | **2D Force-Directed Graph Engine**. Real-time repulsion physics, link distance tuning, and automatic physics suspension on window minimize. |
 | **Spatial Whiteboard** | **Infinite 2D Node Canvas (`.flint/canvas`)**. Free-form canvas supporting note cards, text nodes, group containers, and connector lines. |
-| **Spaced Repetition Engine** | **Built-in FSRS-4.5 Scheduler (`ts-fsrs`)**. Flashcards generated directly from Markdown notes using basic (`::`), bi-directional (`;;`), and cloze (`{...}`) syntax. |
-| **Sequential Book Reader** | **Built-in Cascade Sequential Books**. Navigate ordered chapters with hotkeys (`Alt+,` / `Alt+.`) and graph breadcrumbs. |
-| **Global Tasks Dashboard** | **Built-in Tasks Kanban & List**. Centralizes every `- [ ]` and `- [x]` task across the entire vault into an actionable dashboard. |
-| **Iconography & Customization** | **Built-in Iconify Extension**. Custom note title icons, file tree icons aligned in chevron spacer slots, and multi-style emoji resolution (Native, Twemoji, Apple, Google, Fluent). |
+| **Spaced Repetition Engine** | **Core FSRS-4.5 Scheduler (`ts-fsrs`)**. Flashcards generated directly from Markdown notes using basic (`::`), bi-directional (`;;`), and cloze (`{...}`) syntax. |
+| **Sequential Book Reader** | **Showcase Community Extension: Cascade**. Pre-bundled reference extension demonstrating sequential chapter navigation (`Alt+,` / `Alt+.`), graph breadcrumbs, and SDK custom folder nodes. |
+| **Global Tasks Dashboard** | **Core Tasks Kanban & List**. Centralizes every `- [ ]` and `- [x]` task across the entire vault into an actionable dashboard. |
+| **Iconography & Customization** | **Showcase Community Extension: Iconify**. Pre-bundled reference extension demonstrating custom note title icons, file tree chevron-spacer slots, and multi-style emoji resolution (Native, Twemoji, Apple, Google, Fluent). |
 | **Extension Architecture** | **Micro-Kernel IoC Plugin SDK (`src/sdk`)**. Decoupled EventBus, IoC registries for commands/views/menus, dynamic SQLite schemas, and mandatory MCP tool registration. |
 
 ---
@@ -196,25 +196,33 @@ Add Flint to your client's MCP configuration (e.g. `claude_desktop_config.json`)
   - `{Cloze Deletions}` (Contextual recall)
 - Dedicated review deck modal with stability/difficulty metrics, retention targeting, and review heatmaps.
 
-### 6. Cascade Sequential Books
-- Organize arbitrary notes into sequential books and chapters with smooth hotkey navigation (`Alt + ,` / `Alt + .`) and automatic graph breadcrumbs.
-
-### 7. Centralized Tasks Dashboard
+### 6. Centralized Tasks Dashboard
 - Aggregates every `- [ ]` and `- [x]` markdown task across your entire Hearth into a centralized, actionable kanban and checklist.
 
-### 8. Custom Iconify & Emoji Engine
-- Assign custom icons or emojis to note titles and file tree items.
-- File tree icons seat cleanly in the chevron spacer slot to guarantee uniform filename alignment.
-- Multi-style emoji resolution supporting Native, Twitter (Twemoji), Apple, Google, and Microsoft Fluent emoji sets with dual hex format resolution.
-
-### 9. Journal & Daily Notes
+### 7. Journal & Daily Notes
 - One-click daily scratchpad creation with configurable date formatting and chronological navigation.
 
-### 10. Native UI & Multi-Window Frameless Settings
+### 8. Native UI & Multi-Window Frameless Settings
 - Standalone frameless multi-window configuration suite mirroring native desktop utility UX.
 - 3D tactile buttons (`flint-btn`) and overhauled form controls with crisp borders and visual depth.
 - Instant responsiveness with zero artificial transition delays on micro-interactions.
 - Pre-installed themes: Catppuccin, Nord, Cyberpunk Neon, Rosé Pine, Tokyo Night, Solarized Dark/Light, Flint Dark/Light, Forest Emerald, and Minimal.
+
+---
+
+## Pre-Bundled Community Extensions
+
+Flint pre-bundles two showcase community extensions built exclusively on top of the public Flint SDK (`src/sdk`) with `isCore: false`. These serve as production-grade reference implementations demonstrating how community developers can build rich capabilities without touching native core code, before they are decoupled into standalone marketplace packages:
+
+### 1. Cascade Sequential Books (`flint-cascade`)
+- **Sequential Navigation**: Organize notes into sequential books and chapters with smooth hotkey navigation (`Alt + ,` / `Alt + .`) and automatic graph breadcrumbs.
+- **SDK Reference Model**: Demonstrates custom sidebar virtual folder injection, status bar page counters, reading order properties, and MCP tool registration using only public extension APIs.
+
+### 2. Iconify & Multi-Style Emoji Engine (`iconify`)
+- **Custom Iconography**: Assign custom icons or emojis to note titles, tabs, and file tree items with dedicated SQLite storage.
+- **Chevron-Aligned Slots**: File tree icons seat cleanly in the chevron spacer slot to guarantee uniform filename alignment.
+- **Multi-Style Resolution**: Supports Native, Twitter (Twemoji), Apple, Google, and Microsoft Fluent emoji sets with dual hex format resolution.
+- **SDK Reference Model**: Demonstrates dynamic SQLite table creation on `onload()`, icon picker modals, and full MCP management (`iconify_set_icon`, `iconify_get_icon`).
 
 ---
 
@@ -310,7 +318,9 @@ npm run tauri:build
 
 ## Extensibility & Plugin SDK
 
-Flint features a modular micro-kernel architecture. Both internal features and third-party extensions build on the public **Flint SDK**.
+Flint features a modular micro-kernel architecture. Both native core extensions and third-party plugins build on the public **Flint SDK** (`src/sdk`). Extensions are categorized into two tiers:
+- **Core Extensions (`isCore: true`)**: Built directly into the runtime distribution (e.g. Graph, Canvas, FSRS-4.5, Tasks, Journal, Backlinks). They cannot be uninstalled and are enabled by default.
+- **Community Extensions (`isCore: false`)**: Decoupled, standalone extensions (such as pre-bundled showcase plugins `Cascade` and `Iconify`, and user-installed plugins). They run within standard extension boundaries, manage their own isolated SQLite tables, and can be toggled or uninstalled.
 
 ### Plugin Directory Structure
 Plugins are stored within your vault under `.flint/plugins/<plugin-id>/`:
