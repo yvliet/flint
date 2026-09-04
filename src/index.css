@@ -1586,10 +1586,10 @@ a.flint-btn::after {
   display: none !important;
 }
 
-/* Line numbers */
+/* Line numbers (Obsidian-style gutter counter) */
 .flint-line-numbers .ProseMirror {
   counter-reset: flint-lines;
-  padding-left: 2.25rem;
+  padding-left: 3.25rem;
   position: relative;
 }
 
@@ -1597,10 +1597,15 @@ a.flint-btn::after {
 .flint-line-numbers .ProseMirror > h1,
 .flint-line-numbers .ProseMirror > h2,
 .flint-line-numbers .ProseMirror > h3,
+.flint-line-numbers .ProseMirror > h4,
+.flint-line-numbers .ProseMirror > h5,
+.flint-line-numbers .ProseMirror > h6,
 .flint-line-numbers .ProseMirror > blockquote,
 .flint-line-numbers .ProseMirror > pre,
-.flint-line-numbers .ProseMirror > ul,
-.flint-line-numbers .ProseMirror > ol {
+.flint-line-numbers .ProseMirror > hr,
+.flint-line-numbers .ProseMirror > table,
+.flint-line-numbers .ProseMirror > ul > li,
+.flint-line-numbers .ProseMirror > ol > li {
   position: relative;
 }
 
@@ -1608,20 +1613,43 @@ a.flint-btn::after {
 .flint-line-numbers .ProseMirror > h1::before,
 .flint-line-numbers .ProseMirror > h2::before,
 .flint-line-numbers .ProseMirror > h3::before,
+.flint-line-numbers .ProseMirror > h4::before,
+.flint-line-numbers .ProseMirror > h5::before,
+.flint-line-numbers .ProseMirror > h6::before,
 .flint-line-numbers .ProseMirror > blockquote::before,
 .flint-line-numbers .ProseMirror > pre::before,
-.flint-line-numbers .ProseMirror > ul::before,
-.flint-line-numbers .ProseMirror > ol::before {
+.flint-line-numbers .ProseMirror > hr::before,
+.flint-line-numbers .ProseMirror > table::before {
   counter-increment: flint-lines;
   content: counter(flint-lines);
   position: absolute;
-  left: -2.25rem;
+  left: -3.25rem;
   top: 0;
-  width: 1.5rem;
+  width: 2rem;
   text-align: right;
-  color: #555555;
-  font-size: 11px;
+  color: var(--flint-text-muted, #555555);
+  font-size: calc(var(--editor-font-size, 16px) * 0.78);
   font-family: var(--font-monospace);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  pointer-events: none;
+  line-height: inherit;
+}
+
+/* List items line numbers aligned back to the primary gutter */
+.flint-line-numbers .ProseMirror > ul > li::before,
+.flint-line-numbers .ProseMirror > ol > li::before {
+  counter-increment: flint-lines;
+  content: counter(flint-lines);
+  position: absolute;
+  left: calc(-3.25rem - 1.5rem);
+  top: 0;
+  width: 2rem;
+  text-align: right;
+  color: var(--flint-text-muted, #555555);
+  font-size: calc(var(--editor-font-size, 16px) * 0.78);
+  font-family: var(--font-monospace);
+  font-variant-numeric: tabular-nums;
   user-select: none;
   pointer-events: none;
   line-height: inherit;
