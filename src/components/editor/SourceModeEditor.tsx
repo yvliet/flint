@@ -6,6 +6,10 @@ import {
   analyzeSelectionWrap,
   getCollapsedPairingAction,
   getSmartBackspaceAction,
+  getTabOutDelta,
+  matchCodeFenceLine,
+  matchBlockquoteLine,
+  hasUnclosedOpeningDelimiter,
 } from './extensions/smart-pairing-utils';
 
 export interface SourceModeEditorProps {
@@ -115,6 +119,37 @@ export const SourceModeEditor: React.FC<SourceModeEditorProps> = React.memo(({
     onChange(newContentJson, undefined, parsedProps);
   }, [onChange]);
 
+  // Soft-undo tracking for immediate backspace after auto-pair
+  const lastAutoPairRef = useRef<{ pos: number; char: string } | null>(null);
+
+  // Smart URL Paste: selecting text and pasting a URL automatically wraps it in [selected](url)
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      const { selectionStart, selectionEnd, value } = textarea;
+      if (selectionStart !== selectionEnd) {
+        const text = e.clipboardData.getData('text/plain')?.trim();
+        if (text && (text.startsWith('http://') || text.startsWith('https://') || text.startsWith('mailto:'))) {
+          const selectedText = value.slice(selectionStart, selectionEnd);
+          if (selectedText && !selectedText.startsWith('[') && !selectedText.includes('\n')) {
+            e.preventDefault();
+            const wrapped = `[${selectedText}](${text})`;
+            const updated = value.slice(0, selectionStart) + wrapped + value.slice(selectionEnd);
+            handleChange(updated);
+            pushHistory(updated);
+            setTimeout(() => {
+              textarea.selectionStart = selectionStart + 1;
+              textarea.selectionEnd = selectionStart + 1 + selectedText.length;
+            }, 0);
+            return;
+          }
+        }
+      }
+    },
+    [handleChange, pushHistory]
+  );
+
   // Keyboard enhancements: Tab/Shift-Tab, Smart Auto-Indent, Auto-Pairing, Ctrl+S
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const textarea = textareaRef.current;
@@ -168,6 +203,15 @@ export const SourceModeEditor: React.FC<SourceModeEditorProps> = React.memo(({
 
       if (selectionStart === selectionEnd) {
         if (!e.shiftKey) {
+          // Tab-Out: If sitting immediately before a closing delimiter, step over it
+          const textAfter = value.slice(selectionStart);
+          const tabDelta = getTabOutDelta(textAfter);
+          if (tabDelta > 0) {
+            textarea.selectionStart = textarea.selectionEnd = selectionStart + tabDelta;
+            lastAutoPairRef.current = null;
+            return;
+          }
+
           // Insert indent
           const updated = value.slice(0, selectionStart) + indentStr + value.slice(selectionEnd);
           handleChange(updated);
@@ -214,10 +258,51 @@ export const SourceModeEditor: React.FC<SourceModeEditorProps> = React.memo(({
       return;
     }
 
-    // 5. Enter Key: Smart Auto-Indentation & List Continuation
+    // 5. Enter Key: Smart Auto-Indentation, Code Fences, Blockquotes & List Continuation
     if (e.key === 'Enter' && !isCtrlOrMeta && !e.altKey) {
       const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
       const currentLine = value.slice(lineStart, selectionStart);
+
+      // 5A. Code Fence expansion: ``` or ```lang
+      const fence = matchCodeFenceLine(currentLine);
+      if (fence) {
+        e.preventDefault();
+        const insertText = `\n${fence.indent}\n${fence.indent}\`\`\``;
+        const updated = value.slice(0, selectionStart) + insertText + value.slice(selectionEnd);
+        handleChange(updated);
+        pushHistory(updated);
+        setTimeout(() => {
+          textarea.selectionStart = textarea.selectionEnd = selectionStart + 1 + fence.indent.length;
+        }, 0);
+        return;
+      }
+
+      // 5B. Blockquote continuation & clean exit: > quote
+      const blockquote = matchBlockquoteLine(currentLine);
+      if (blockquote) {
+        if (blockquote.isEmpty) {
+          e.preventDefault();
+          const updated = value.slice(0, lineStart) + value.slice(selectionStart);
+          handleChange(updated);
+          pushHistory(updated);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = lineStart;
+          }, 0);
+          return;
+        }
+        e.preventDefault();
+        const nextPrefix = `${blockquote.marker} `;
+        const insertText = '\n' + nextPrefix;
+        const updated = value.slice(0, selectionStart) + insertText + value.slice(selectionEnd);
+        handleChange(updated);
+        pushHistory(updated);
+        setTimeout(() => {
+          textarea.selectionStart = textarea.selectionEnd = selectionStart + insertText.length;
+        }, 0);
+        return;
+      }
+
+      // 5C. List Continuation
       const indentMatch = currentLine.match(/^(\s+)/);
       const listMatch = currentLine.match(/^(\s*(?:[-*+]|\d+\.)\s+(?:\[[ xX]\]\s+)?)/);
 
@@ -308,6 +393,19 @@ export const SourceModeEditor: React.FC<SourceModeEditorProps> = React.memo(({
         const caretPosInLine = pos - lineStart;
 
         if (e.key === 'Backspace' && pos > 0) {
+          // Soft Undo: If user immediately hits Backspace right after an auto-pair,
+          // remove only the auto-inserted closing character.
+          if (lastAutoPairRef.current && lastAutoPairRef.current.pos === pos) {
+            e.preventDefault();
+            const deleteLen = lastAutoPairRef.current.char.length;
+            const updated = value.slice(0, pos) + value.slice(pos + deleteLen);
+            handleChange(updated);
+            pushHistory(updated);
+            lastAutoPairRef.current = null;
+            return;
+          }
+          lastAutoPairRef.current = null;
+
           const bsAction = getSmartBackspaceAction(lineText, caretPosInLine);
           if (bsAction) {
             e.preventDefault();
@@ -319,6 +417,23 @@ export const SourceModeEditor: React.FC<SourceModeEditorProps> = React.memo(({
             }, 0);
             return;
           }
+        }
+
+        // Reset soft undo tracking on any non-backspace keystroke
+        lastAutoPairRef.current = null;
+
+        // Math Subscript/Superscript Auto-Bracing inside $...$ or $$...$$
+        if ((e.key === '^' || e.key === '_') && hasUnclosedOpeningDelimiter(lineText.slice(0, caretPosInLine), '$')) {
+          e.preventDefault();
+          const insert = `${e.key}{}`;
+          const updated = value.slice(0, pos) + insert + value.slice(pos);
+          handleChange(updated);
+          pushHistory(updated);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = pos + 2;
+          }, 0);
+          lastAutoPairRef.current = { pos: pos + 2, char: '}' };
+          return;
         }
 
         const pairResult = getCollapsedPairingAction(e.key, lineText, caretPosInLine);
@@ -359,16 +474,20 @@ export const SourceModeEditor: React.FC<SourceModeEditorProps> = React.memo(({
             setTimeout(() => {
               textarea.selectionStart = textarea.selectionEnd = pos + leftPart.length;
             }, 0);
+            lastAutoPairRef.current = { pos: pos + leftPart.length, char: rightPart };
             return;
           }
           if (pairResult.action === 'pair') {
             const insert = pairResult.insertText ?? `${e.key}${e.key}`;
+            const delta = pairResult.caretDelta ?? 1;
+            const rightPart = insert.slice(delta);
             const updated = value.slice(0, pos) + insert + value.slice(pos);
             handleChange(updated);
             pushHistory(updated);
             setTimeout(() => {
-              textarea.selectionStart = textarea.selectionEnd = pos + (pairResult.caretDelta ?? 1);
+              textarea.selectionStart = textarea.selectionEnd = pos + delta;
             }, 0);
+            lastAutoPairRef.current = { pos: pos + delta, char: rightPart };
             return;
           }
         }
@@ -423,6 +542,7 @@ export const SourceModeEditor: React.FC<SourceModeEditorProps> = React.memo(({
           debouncedPushHistory(e.target.value);
         }}
         onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
         spellCheck={spellcheck}
         autoCapitalize="off"
         autoCorrect="off"

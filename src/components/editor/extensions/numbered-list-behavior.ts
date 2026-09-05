@@ -3,6 +3,7 @@ import { TextSelection } from '@tiptap/pm/state';
 import { FoldHeadingPluginKey } from './fold-heading';
 import { getIndentSize } from './smart-tab-indent';
 import { isSuggestionActive } from './suggestion-state';
+import { matchCodeFenceLine, matchBlockquoteLine } from './smart-pairing-utils';
 
 /**
  * Gets the next sequential marker for numbers, single letters, or double letters.
@@ -259,6 +260,60 @@ export const NumberedListBehavior = Extension.create({
         const lineEndOffset = nextNewline === -1 ? blockText.length : nextNewline;
         const lineText = blockText.slice(lineStartOffset, lineEndOffset);
         const col = parentOffset - lineStartOffset;
+
+        // 0A. Check for Code Fence expansion: ``` or ```lang
+        const fence = matchCodeFenceLine(lineText);
+        if (fence && col === lineEndOffset) {
+          const insertText = `\n${fence.indent}\n${fence.indent}\`\`\``;
+          const tr = state.tr.insertText(insertText, $from.pos);
+          tr.setSelection(TextSelection.create(tr.doc, $from.pos + 1 + fence.indent.length));
+          view.dispatch(tr.scrollIntoView());
+          return true;
+        }
+
+        // 0B. Check for Blockquote continuation & clean exit: > quote
+        const blockquote = matchBlockquoteLine(lineText);
+        if (blockquote) {
+          // Case A: Empty blockquote line (e.g. "> ") -> clear prefix to exit blockquote
+          if (blockquote.isEmpty) {
+            const linePosStart = blockStart + lineStartOffset;
+            const linePosEnd = blockStart + lineEndOffset;
+            const tr = state.tr.delete(linePosStart, linePosEnd);
+            view.dispatch(tr.scrollIntoView());
+            return true;
+          }
+
+          // Case B: Continue blockquote on next line
+          const textAfterCursor = lineText.slice(col);
+          const nextPrefix = `${blockquote.marker} `;
+          if (col === lineEndOffset) {
+            const insertPos = $from.after();
+            const nextContent = `${nextPrefix}${textAfterCursor}`;
+            const newParagraph = state.schema.nodes.paragraph.create(
+              null,
+              state.schema.text(nextContent)
+            );
+            let tr = state.tr.insert(insertPos, newParagraph);
+            const cursorTarget = insertPos + 1 + nextPrefix.length;
+            tr = tr.setSelection(TextSelection.create(tr.doc, cursorTarget)).scrollIntoView();
+            view.dispatch(tr);
+            return true;
+          } else {
+            const linePosEnd = blockStart + lineEndOffset;
+            let tr = state.tr.delete($from.pos, linePosEnd);
+            const afterPos = tr.mapping.map($from.after());
+            const nextContent = `${nextPrefix}${textAfterCursor}`;
+            const newParagraph = state.schema.nodes.paragraph.create(
+              null,
+              state.schema.text(nextContent)
+            );
+            tr = tr.insert(afterPos, newParagraph);
+            const cursorTarget = afterPos + 1 + nextPrefix.length;
+            tr = tr.setSelection(TextSelection.create(tr.doc, cursorTarget)).scrollIntoView();
+            view.dispatch(tr);
+            return true;
+          }
+        }
 
         // 1. Check for Numbered List, Letter List (a./aa.), or Bullet/Dash item: ^([ \t]*)(\d+\.|[a-zA-Z]{1,2}\.|[-*+])( *)(.*)$
         const listMatch = lineText.match(/^([ \t]*)(\d+\.|[a-zA-Z]{1,2}\.|[-*+])( *)(.*)$/);

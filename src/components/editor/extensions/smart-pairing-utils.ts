@@ -154,6 +154,11 @@ export function hasUnclosedOpeningDelimiter(textBeforeOnLine: string, delimiter:
     return matches ? matches.length % 2 === 1 : false;
   }
 
+  if (delimiter === "'") {
+    const matches = unescaped.match(/'/g);
+    return matches ? matches.length % 2 === 1 : false;
+  }
+
   if (delimiter === ']' || delimiter === '[') {
     let openCount = 0;
     for (let j = 0; j < unescaped.length; j++) {
@@ -653,6 +658,7 @@ export function analyzeSelectionWrap(
     '{': { open: '{', close: '}' },
     '}': { open: '{', close: '}' },
     '"': { open: '"', close: '"' },
+    "'": { open: "'", close: "'" },
   };
 
   if (BRACKETS[key]) {
@@ -939,6 +945,45 @@ export function getCollapsedPairingAction(
     };
   }
 
+  // Single quote (') smart action: contractions vs quotes
+  if (key === "'") {
+    if (afterOne === "'" && beforeOne !== "'") {
+      return {
+        action: 'step_over',
+        caretDelta: 1,
+      };
+    }
+    // If preceded by an alphanumeric character, it's an apostrophe/contraction (don't, it's, etc.)
+    if (/[a-zA-Z0-9]$/.test(textBefore)) {
+      return {
+        action: 'close_single',
+        insertText: "'",
+        caretDelta: 1,
+      };
+    }
+    // If there's an unclosed single quote earlier on the line, close it
+    if (hasUnclosedOpeningDelimiter(textBefore, "'")) {
+      return {
+        action: 'close_single',
+        insertText: "'",
+        caretDelta: 1,
+      };
+    }
+    // If preceded by whitespace, start of line, or opening bracket/symbol, auto-pair
+    if (/(^|[\s([{<=])$/.test(textBefore)) {
+      return {
+        action: 'pair',
+        insertText: "''",
+        caretDelta: 1,
+      };
+    }
+    return {
+      action: 'close_single',
+      insertText: "'",
+      caretDelta: 1,
+    };
+  }
+
   // Closing unclosed bracket/quote without pairing
   if (CLOSING_CHARS[key]) {
     if (hasUnclosedOpeningDelimiter(textBefore, key)) {
@@ -1038,15 +1083,78 @@ export function getSmartBackspaceAction(
     return { deleteBefore: 1, deleteAfter: 1 };
   }
 
-  // 9. Standard bracket/quote pairs: `()`, `{}`, `""`
+  // 9. Standard bracket/quote pairs: `()`, `{}`, `""`, `''`
   const BRACKET_PAIRS: Record<string, string> = {
     '(': ')',
     '{': '}',
     '"': '"',
+    "'": "'",
   };
   if (BRACKET_PAIRS[beforeOne] === afterOne) {
     return { deleteBefore: 1, deleteAfter: 1 };
   }
 
+  return null;
+}
+
+/**
+ * Calculates the number of characters to jump forward when pressing Tab immediately
+ * before a closing delimiter. Returns 0 if not sitting before a closing delimiter.
+ */
+export function getTabOutDelta(textAfter: string): number {
+  if (!textAfter) return 0;
+  if (
+    textAfter.startsWith('**') ||
+    textAfter.startsWith(']]') ||
+    textAfter.startsWith('$$') ||
+    textAfter.startsWith('==') ||
+    textAfter.startsWith('~~') ||
+    textAfter.startsWith('```')
+  ) {
+    return textAfter.startsWith('```') ? 3 : 2;
+  }
+  const SINGLE_DELIMITERS = new Set([')', ']', '}', '"', "'", '*', '`', '$', '>']);
+  if (SINGLE_DELIMITERS.has(textAfter.charAt(0))) {
+    return 1;
+  }
+  return 0;
+}
+
+export interface CodeFenceExpandResult {
+  indent: string;
+  lang: string;
+}
+
+/**
+ * Matches a code fence trigger line such as ``` or ```typescript.
+ */
+export function matchCodeFenceLine(lineText: string): CodeFenceExpandResult | null {
+  const match = lineText.match(/^([ \t]*)```([a-zA-Z0-9_-]*)$/);
+  if (match) {
+    return { indent: match[1], lang: match[2] };
+  }
+  return null;
+}
+
+export interface BlockquoteLineResult {
+  marker: string;
+  content: string;
+  isEmpty: boolean;
+}
+
+/**
+ * Matches a markdown blockquote line such as `> Quote text` or empty `> `.
+ */
+export function matchBlockquoteLine(lineText: string): BlockquoteLineResult | null {
+  const match = lineText.match(/^([ \t]*>+)( *)(.*)$/);
+  if (match) {
+    const marker = match[1];
+    const content = match[3];
+    return {
+      marker,
+      content,
+      isEmpty: content.trim() === '',
+    };
+  }
   return null;
 }
