@@ -66,7 +66,6 @@ const hangIndentCache = new Map<string, number>();
  * Measures the exact pixel width of a list item prefix (leading spaces + marker + trailing space)
  * under the active editor font metrics.
  *
- * WHY THIS, NOT THAT:
  * Measuring via an in-memory 2D canvas gives 100% pixel-perfect alignment with the first
  * character of the list item text across any font family (Segoe UI, Inter, Roboto, monospace)
  * and font size. Caching by `${font}::${prefix}` ensures O(1) instantaneous lookups during typing.

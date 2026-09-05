@@ -1,7 +1,6 @@
 /**
  * Pure helper utilities for smart autowrapping and auto-pairing in Flint.
  *
- * WHY THIS, NOT THAT:
  * Extracted into pure utility functions with zero UI or framework dependencies so
  * that both TipTap's ProseMirror plugin (AutoPairing) and Source Mode Editor
  * (raw textarea) share identical, predictable syntactic behavior without code duplication.

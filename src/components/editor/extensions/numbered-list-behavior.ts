@@ -544,7 +544,6 @@ export const NumberedListBehavior = Extension.create({
         const hardBreakType = state.schema.nodes.hardBreak;
 
         // 2. Shift-Enter on a List item (Number, Letter a./aa., or Bullet/Dash):
-        // WHY THIS, NOT THAT:
         // Use an inline hardBreak node (<br>) without injecting manual spaces.
         // Because the paragraph has visual hanging indent (.flint-list-hanging), continuation lines
         // after <br> are already visually aligned flush beneath the list item text (Google Docs style)

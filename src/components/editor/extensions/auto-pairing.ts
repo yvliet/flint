@@ -21,7 +21,6 @@ export interface AutoPairingStorage {
 /**
  * Smart Auto-Pairing and Autowrapping Extension for Flint.
  *
- * WHY THIS, NOT THAT:
  * 1. Soft Undo: Immediately pressing Backspace after an auto-pair removes ONLY the auto-inserted
  *    closing character, allowing typists to type single characters (e.g. emoticons or footnotes)
  *    without being trapped in unwanted pairs.

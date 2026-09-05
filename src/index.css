@@ -804,8 +804,7 @@ kbd,
   margin: 1.75rem 0;
 }
 
-/* Task lists
- * WHY THIS, NOT THAT:
+/* Task lists:
  * TipTap renders task items as <li data-type="taskItem"><label><input type="checkbox">...</label><div><p>...</p></div></li>.
  * When ProseMirror paragraphs have default vertical margins (0.5rem) and the label has uncoordinated top margins,
  * the text and checkbox become vertically misaligned (the text hangs noticeably lower than the checkbox).
