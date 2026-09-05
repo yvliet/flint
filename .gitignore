@@ -1,0 +1,51 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Node dependencies & web builds
+node_modules
+dist
+dist-ssr
+*.local
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+test-results/
+playwright-report/
+
+# Rust / Tauri build artifacts
+target/
+**/target/
+src-tauri/target/
+src-tauri/WixTools/
+*.rlib
+*.pdb
+*.lib
+*.a
+*.exe
+*.dll
+*.so
+*.dylib
+
+# SQLite databases & temp storage
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+.trash
+
+# Editor & OS files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+Thumbs.db
