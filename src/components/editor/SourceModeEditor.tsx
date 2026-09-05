@@ -2,6 +2,11 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { parseFrontmatter, formatFrontmatter, jsonToMarkdown, markdownToTipTapJson } from '@/lib/db/documents';
 import { useSettingsStore } from '@/store/settingsStore';
 import { DocumentProperties } from '@/types';
+import {
+  analyzeSelectionWrap,
+  getCollapsedPairingAction,
+  getSmartBackspaceAction,
+} from './extensions/smart-pairing-utils';
 
 export interface SourceModeEditorProps {
   documentId: string;
@@ -260,67 +265,113 @@ export const SourceModeEditor: React.FC<SourceModeEditorProps> = React.memo(({
       }
     }
 
-    // 6. Auto-pairing brackets & quotes
-    const pairs: Record<string, string> = {};
-    if (autoPairing) {
-      pairs['('] = ')';
-      pairs['['] = ']';
-      pairs['{'] = '}';
-      pairs['"'] = '"';
-      pairs['`'] = '`';
-      pairs['*'] = '*';
-      pairs['~'] = '~';
-    }
-
-    if (pairs[e.key] && !isCtrlOrMeta && !e.altKey) {
-      const closing = pairs[e.key];
+    // 6. Smart auto-pairing and autowrapping
+    if (autoPairing && !isCtrlOrMeta && !e.altKey) {
       if (selectionStart !== selectionEnd) {
-        e.preventDefault();
-        const selectedText = value.slice(selectionStart, selectionEnd);
-        const wrapped = e.key + selectedText + closing;
-        const updated = value.slice(0, selectionStart) + wrapped + value.slice(selectionEnd);
-        handleChange(updated);
-        pushHistory(updated);
-        setTimeout(() => {
-          textarea.selectionStart = selectionStart + 1;
-          textarea.selectionEnd = selectionEnd + 1;
-        }, 0);
-        return;
+        const selFrom = selectionStart;
+        const selTo = selectionEnd;
+        const selText = value.slice(selFrom, selTo);
+        const lineStart = value.lastIndexOf('\n', selFrom - 1) + 1;
+        const lineEndIdx = value.indexOf('\n', selTo);
+        const lineEnd = lineEndIdx === -1 ? value.length : lineEndIdx;
+        const lineText = value.slice(lineStart, lineEnd);
+        const selStartInLine = selFrom - lineStart;
+        const selEndInLine = selTo - lineStart;
+
+        const wrapResult = analyzeSelectionWrap(
+          selFrom,
+          selTo,
+          selText,
+          lineText,
+          selStartInLine,
+          selEndInLine,
+          e.key
+        );
+
+        if (wrapResult) {
+          e.preventDefault();
+          const updated = value.slice(0, wrapResult.replaceFrom) + wrapResult.text + value.slice(wrapResult.replaceTo);
+          handleChange(updated);
+          pushHistory(updated);
+          setTimeout(() => {
+            textarea.selectionStart = wrapResult.selectionFrom;
+            textarea.selectionEnd = wrapResult.selectionTo;
+          }, 0);
+          return;
+        }
       } else {
-        // Auto-close pair
-        e.preventDefault();
-        const updated = value.slice(0, selectionStart) + e.key + closing + value.slice(selectionEnd);
-        handleChange(updated);
-        pushHistory(updated);
-        setTimeout(() => {
-          textarea.selectionStart = selectionStart + 1;
-        }, 0);
-        return;
-      }
-    }
+        const pos = selectionStart;
+        const lineStart = value.lastIndexOf('\n', pos - 1) + 1;
+        const lineEndIdx = value.indexOf('\n', pos);
+        const lineEnd = lineEndIdx === -1 ? value.length : lineEndIdx;
+        const lineText = value.slice(lineStart, lineEnd);
+        const caretPosInLine = pos - lineStart;
 
-    // 7. Auto-skip closing character
-    if (selectionStart === selectionEnd && (e.key === ')' || e.key === ']' || e.key === '}' || e.key === '"' || e.key === '`' || e.key === '*' || e.key === '~')) {
-      if (value[selectionStart] === e.key) {
-        e.preventDefault();
-        textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
-        return;
-      }
-    }
+        if (e.key === 'Backspace' && pos > 0) {
+          const bsAction = getSmartBackspaceAction(lineText, caretPosInLine);
+          if (bsAction) {
+            e.preventDefault();
+            const updated = value.slice(0, pos - bsAction.deleteBefore) + value.slice(pos + bsAction.deleteAfter);
+            handleChange(updated);
+            pushHistory(updated);
+            setTimeout(() => {
+              textarea.selectionStart = textarea.selectionEnd = pos - bsAction.deleteBefore;
+            }, 0);
+            return;
+          }
+        }
 
-    // 8. Backspace pair deletion
-    if (e.key === 'Backspace' && selectionStart === selectionEnd && selectionStart > 0) {
-      const prevChar = value[selectionStart - 1];
-      const nextChar = value[selectionStart];
-      if (pairs[prevChar] === nextChar) {
-        e.preventDefault();
-        const updated = value.slice(0, selectionStart - 1) + value.slice(selectionStart + 1);
-        handleChange(updated);
-        pushHistory(updated);
-        setTimeout(() => {
-          textarea.selectionStart = textarea.selectionEnd = selectionStart - 1;
-        }, 0);
-        return;
+        const pairResult = getCollapsedPairingAction(e.key, lineText, caretPosInLine);
+        if (pairResult.action !== 'none') {
+          e.preventDefault();
+          if (pairResult.action === 'step_over') {
+            textarea.selectionStart = textarea.selectionEnd = pos + (pairResult.caretDelta ?? 1);
+            return;
+          }
+          if (pairResult.action === 'bullet_space') {
+            const afterDelete = pairResult.deleteAfter ?? 0;
+            const updated = value.slice(0, pos) + (pairResult.insertText ?? ' ') + value.slice(pos + afterDelete);
+            handleChange(updated);
+            pushHistory(updated);
+            setTimeout(() => {
+              textarea.selectionStart = textarea.selectionEnd = pos + (pairResult.caretDelta ?? 1);
+            }, 0);
+            return;
+          }
+          if (pairResult.action === 'close_single') {
+            const insert = pairResult.insertText ?? e.key;
+            const updated = value.slice(0, pos) + insert + value.slice(pos);
+            handleChange(updated);
+            pushHistory(updated);
+            setTimeout(() => {
+              textarea.selectionStart = textarea.selectionEnd = pos + (pairResult.caretDelta ?? 1);
+            }, 0);
+            return;
+          }
+          if (pairResult.action === 'escalate') {
+            const insert = pairResult.insertText ?? '**';
+            const half = Math.floor(insert.length / 2);
+            const leftPart = insert.slice(0, half);
+            const rightPart = insert.slice(half);
+            const updated = value.slice(0, pos) + leftPart + rightPart + value.slice(pos);
+            handleChange(updated);
+            pushHistory(updated);
+            setTimeout(() => {
+              textarea.selectionStart = textarea.selectionEnd = pos + leftPart.length;
+            }, 0);
+            return;
+          }
+          if (pairResult.action === 'pair') {
+            const insert = pairResult.insertText ?? `${e.key}${e.key}`;
+            const updated = value.slice(0, pos) + insert + value.slice(pos);
+            handleChange(updated);
+            pushHistory(updated);
+            setTimeout(() => {
+              textarea.selectionStart = textarea.selectionEnd = pos + (pairResult.caretDelta ?? 1);
+            }, 0);
+            return;
+          }
+        }
       }
     }
   };
