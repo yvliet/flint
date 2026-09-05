@@ -138,6 +138,8 @@ export const CopilotSidebarView: React.FC = () => {
   const includeActiveNoteContext = useCopilotStore((s) => s.includeActiveNoteContext);
   const fetchedModels = useCopilotStore((s) => s.fetchedModels);
   const refreshModels = useCopilotStore((s) => s.refreshModels);
+  const draftPrompt = useCopilotStore((s) => s.draftPrompt);
+  const setDraftPrompt = useCopilotStore((s) => s.setDraftPrompt);
   const sessionTopic = useCopilotStore((s) => s.sessionTopic);
   const toolMode = useCopilotStore((s) => s.toolMode);
   const sessions = useCopilotStore((s) => s.sessions);
@@ -222,6 +224,23 @@ export const CopilotSidebarView: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [messages, isGenerating]);
+
+  // Consume any draft prompt passed externally from context menus or commands
+  useEffect(() => {
+    if (draftPrompt) {
+      setInputVal(draftPrompt);
+      setDraftPrompt('');
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.selectionStart = textareaRef.current.value.length;
+          textareaRef.current.selectionEnd = textareaRef.current.value.length;
+          textareaRef.current.style.height = 'auto';
+          textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+        }
+      }, 50);
+    }
+  }, [draftPrompt, setDraftPrompt]);
 
   // Adjust input textarea height dynamically
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

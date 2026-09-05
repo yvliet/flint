@@ -190,6 +190,10 @@ export interface CopilotSettingsState {
   setAbortController: (ctrl: AbortController | null) => void;
   stopGeneration: () => void;
 
+  // Draft Input / External Prompt Prefill
+  draftPrompt: string;
+  setDraftPrompt: (prompt: string) => void;
+
   // Defaults
   restoreDefaults: () => void;
 }
@@ -404,6 +408,9 @@ export const useCopilotStore = create<CopilotSettingsState>((set, get) => ({
   messages: initialActiveThread,
   isGenerating: false,
   abortController: null,
+
+  draftPrompt: '',
+  setDraftPrompt: (prompt) => set({ draftPrompt: prompt }),
 
   setProvider: (provider) => {
     set({ provider });
