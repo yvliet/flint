@@ -316,7 +316,13 @@ async function executeOpenAiCompatibleLoop(
     }
   }
 
-  if (newPrompt) {
+  const lastAdded = formattedMessages[formattedMessages.length - 1];
+  const alreadyIncluded =
+    lastAdded &&
+    lastAdded.role === 'user' &&
+    lastAdded.content.trim() === newPrompt.trim();
+
+  if (newPrompt && !alreadyIncluded) {
     formattedMessages.push({ role: 'user', content: newPrompt });
   }
 
@@ -505,7 +511,13 @@ async function executeAnthropicLoop(
     }
   }
 
-  if (newPrompt) {
+  const lastAdded = messages[messages.length - 1];
+  const alreadyIncluded =
+    lastAdded &&
+    lastAdded.role === 'user' &&
+    lastAdded.content.trim() === newPrompt.trim();
+
+  if (newPrompt && !alreadyIncluded) {
     messages.push({ role: 'user', content: newPrompt });
   }
 
