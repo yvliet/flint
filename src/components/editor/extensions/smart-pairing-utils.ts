@@ -1158,3 +1158,88 @@ export function matchBlockquoteLine(lineText: string): BlockquoteLineResult | nu
   }
   return null;
 }
+
+export interface ListPrefixInfo {
+  leadingIndent: string;
+  openDelim: string;
+  marker: string;
+  closeDelim: string;
+  spaceAfter: string;
+  content: string;
+  markerStartInLine: number;
+  markerEndInLine: number;
+  isBullet: boolean;
+  prefixLen: number;
+}
+
+/**
+ * Matches a list prefix in a line of markdown, supporting both standard prefixes (e.g. "1. ", "- ", "a. ")
+ * and bolded/italicized prefixes (e.g. "**1. ", "**1.** ", "**1. **", "**- ", "**-** ").
+ * Ensures numbers and list markers remain correctly identified and dimmed even when wrapped in bold syntax.
+ */
+export function matchLineListPrefix(lineText: string): ListPrefixInfo | null {
+  // 1. Wrapped marker: bolded or styled
+  // Case A: Marker followed by closing stars then space: e.g. "**1.** " or "**-** "
+  // Case B: Marker followed by space then closing stars: e.g. "**1. **" or "**- **"
+  // Case C: Marker followed by space (open bold): e.g. "**1. foo" or "**- foo"
+  const wrappedMatch = lineText.match(
+    /^([ \t]*)(\*{1,3})(\d+\.|[a-zA-Z]{1,2}\.|[-+])(?:(\2)( +)|( +)(\2)|( +))(.*)$/
+  );
+  if (wrappedMatch) {
+    const leadingIndent = wrappedMatch[1];
+    const openDelim = wrappedMatch[2];
+    const marker = wrappedMatch[3];
+    const closeDelim = wrappedMatch[4] || wrappedMatch[7] || '';
+    const spaceAfter = wrappedMatch[5] || wrappedMatch[6] || wrappedMatch[8] || ' ';
+    const content = wrappedMatch[9] ?? '';
+    const markerStartInLine = leadingIndent.length + openDelim.length;
+    const markerEndInLine = markerStartInLine + marker.length;
+    const isBullet = /^[-+]$/.test(marker);
+    const prefixLen =
+      leadingIndent.length +
+      openDelim.length +
+      marker.length +
+      (closeDelim ? closeDelim.length : 0) +
+      spaceAfter.length;
+    return {
+      leadingIndent,
+      openDelim,
+      marker,
+      closeDelim,
+      spaceAfter,
+      content,
+      markerStartInLine,
+      markerEndInLine,
+      isBullet,
+      prefixLen,
+    };
+  }
+
+  // 2. Standard unstyled list prefix: e.g. "1. ", "a. ", "- ", "* ", "+ "
+  const stdMatch = lineText.match(/^([ \t]*)(\d+\.|[a-zA-Z]{1,2}\.|[-*+])( +)(.*)$/);
+  if (stdMatch) {
+    const leadingIndent = stdMatch[1];
+    const marker = stdMatch[2];
+    const spaceAfter = stdMatch[3];
+    const content = stdMatch[4] ?? '';
+    const markerStartInLine = leadingIndent.length;
+    const markerEndInLine = markerStartInLine + marker.length;
+    const isBullet = /^[-*+]$/.test(marker);
+    const prefixLen = leadingIndent.length + marker.length + spaceAfter.length;
+    return {
+      leadingIndent,
+      openDelim: '',
+      marker,
+      closeDelim: '',
+      spaceAfter,
+      content,
+      markerStartInLine,
+      markerEndInLine,
+      isBullet,
+      prefixLen,
+    };
+  }
+
+  return null;
+}
+

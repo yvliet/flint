@@ -3,7 +3,7 @@ import { TextSelection } from '@tiptap/pm/state';
 import { FoldHeadingPluginKey } from './fold-heading';
 import { getIndentSize } from './smart-tab-indent';
 import { isSuggestionActive } from './suggestion-state';
-import { matchCodeFenceLine, matchBlockquoteLine } from './smart-pairing-utils';
+import { matchCodeFenceLine, matchBlockquoteLine, matchLineListPrefix } from './smart-pairing-utils';
 
 /**
  * Gets the next sequential marker for numbers, single letters, or double letters.
@@ -74,7 +74,9 @@ function renumberSubsequentItems(
   tr: any,
   startPos: number,
   leadingIndent: string,
-  currentMarker: string
+  currentMarker: string,
+  openDelim: string = '',
+  closeDelim: string = ''
 ) {
   let checkPos = startPos;
   let nextExpected = currentMarker;
@@ -84,17 +86,18 @@ function renumberSubsequentItems(
     if (!node || !node.isTextblock || node.type.name !== 'paragraph') break;
 
     const nodeText = node.textContent;
-    const matchSub = nodeText.match(/^([ \t]*)(\d+\.|[a-zA-Z]{1,2}\.)(.*)$/);
-    if (!matchSub) break;
+    const listInfo = matchLineListPrefix(nodeText);
+    if (!listInfo) break;
 
-    const subIndent = matchSub[1];
-    const subMarker = matchSub[2];
-    const subRest = matchSub[3];
-
-    // Only renumber if it has identical leading indentation and matches the expected sequence
-    if (subIndent === leadingIndent && subMarker === nextExpected) {
-      const newSubMarker = getNextMarker(subMarker);
-      const replacementText = `${subIndent}${newSubMarker}${subRest}`;
+    // Only renumber if it has identical leading indentation, delimiter style, and matches the expected sequence
+    if (
+      listInfo.leadingIndent === leadingIndent &&
+      listInfo.openDelim === openDelim &&
+      listInfo.closeDelim === closeDelim &&
+      listInfo.marker === nextExpected
+    ) {
+      const newSubMarker = getNextMarker(listInfo.marker);
+      const replacementText = `${listInfo.leadingIndent}${listInfo.openDelim}${newSubMarker}${listInfo.closeDelim}${listInfo.spaceAfter}${listInfo.content}`;
       const nodeStart = checkPos + 1;
       const nodeEnd = checkPos + node.nodeSize - 1;
       tr.replaceWith(nodeStart, nodeEnd, tr.doc.type.schema.text(replacementText));
@@ -133,20 +136,22 @@ export const NumberedListBehavior = Extension.create({
         const lineText = blockText.slice(lineStartOffset, lineEndOffset);
         const col = parentOffset - lineStartOffset;
 
-        // Check for List item (Number, Letter a./aa., or Dash/Bullet): ^([ \t]*)(\d+\.|[a-zA-Z]{1,2}\.|[-*+])( *)(.*)$
-        const listMatch = lineText.match(/^([ \t]*)(\d+\.|[a-zA-Z]{1,2}\.|[-*+])( *)(.*)$/);
-        if (listMatch) {
-          const leadingIndent = listMatch[1];
-          const marker = listMatch[2];
-          const spaceAfterMarker = listMatch[3];
-          const content = listMatch[4];
-          const oldPrefixLen = leadingIndent.length + marker.length + spaceAfterMarker.length;
+        // Check for List item (Number, Letter a./aa., or Dash/Bullet):
+        const listInfo = matchLineListPrefix(lineText);
+        if (listInfo) {
+          const leadingIndent = listInfo.leadingIndent;
+          const openDelim = listInfo.openDelim;
+          const marker = listInfo.marker;
+          const closeDelim = listInfo.closeDelim;
+          const spaceAfterMarker = listInfo.spaceAfter;
+          const content = listInfo.content;
+          const oldPrefixLen = listInfo.prefixLen;
 
           const indentSize = getIndentSize();
           const indentStep = ' '.repeat(indentSize);
           const newIndent = leadingIndent + indentStep;
           const startMarker = getNestedStartingMarker(marker);
-          const newPrefix = `${newIndent}${startMarker} `;
+          const newPrefix = `${newIndent}${openDelim}${startMarker}${closeDelim}${spaceAfterMarker}`;
           const newFullLine = `${newPrefix}${content}`;
 
           const linePosStart = blockStart + lineStartOffset;
@@ -197,19 +202,21 @@ export const NumberedListBehavior = Extension.create({
         const col = parentOffset - lineStartOffset;
 
         // Check for List item with leading indent to outdent
-        const listMatch = lineText.match(/^([ \t]*)(\d+\.|[a-zA-Z]{1,2}\.|[-*+])( *)(.*)$/);
-        if (listMatch && listMatch[1].length > 0) {
-          const leadingIndent = listMatch[1];
-          const marker = listMatch[2];
-          const spaceAfterMarker = listMatch[3];
-          const content = listMatch[4];
-          const oldPrefixLen = leadingIndent.length + marker.length + spaceAfterMarker.length;
+        const listInfo = matchLineListPrefix(lineText);
+        if (listInfo && listInfo.leadingIndent.length > 0) {
+          const leadingIndent = listInfo.leadingIndent;
+          const openDelim = listInfo.openDelim;
+          const marker = listInfo.marker;
+          const closeDelim = listInfo.closeDelim;
+          const spaceAfterMarker = listInfo.spaceAfter;
+          const content = listInfo.content;
+          const oldPrefixLen = listInfo.prefixLen;
 
           const indentSize = getIndentSize();
           const removeCount = Math.min(indentSize, leadingIndent.length);
           const newIndent = leadingIndent.slice(0, -removeCount);
           const startMarker = getNestedStartingMarker(marker);
-          const newPrefix = `${newIndent}${startMarker} `;
+          const newPrefix = `${newIndent}${openDelim}${startMarker}${closeDelim}${spaceAfterMarker}`;
           const newFullLine = `${newPrefix}${content}`;
 
           const linePosStart = blockStart + lineStartOffset;
@@ -315,17 +322,19 @@ export const NumberedListBehavior = Extension.create({
           }
         }
 
-        // 1. Check for Numbered List, Letter List (a./aa.), or Bullet/Dash item: ^([ \t]*)(\d+\.|[a-zA-Z]{1,2}\.|[-*+])( *)(.*)$
-        const listMatch = lineText.match(/^([ \t]*)(\d+\.|[a-zA-Z]{1,2}\.|[-*+])( *)(.*)$/);
-        if (listMatch && listMatch[3].length >= 1) {
-          const leadingIndent = listMatch[1];
-          const marker = listMatch[2];
-          const spaceAfterMarker = listMatch[3];
-          const contentAfterPrefix = listMatch[4];
-          const prefixLen = leadingIndent.length + marker.length + spaceAfterMarker.length;
+        // 1. Check for Numbered List, Letter List (a./aa.), or Bullet/Dash item:
+        const listInfo = matchLineListPrefix(lineText);
+        if (listInfo && listInfo.spaceAfter.length >= 1) {
+          const leadingIndent = listInfo.leadingIndent;
+          const openDelim = listInfo.openDelim;
+          const marker = listInfo.marker;
+          const closeDelim = listInfo.closeDelim;
+          const spaceAfterMarker = listInfo.spaceAfter;
+          const contentAfterPrefix = listInfo.content;
+          const prefixLen = listInfo.prefixLen;
           const isSequential = /^\d+\.$|^[a-zA-Z]{1,2}\.$/.test(marker);
 
-          // Case A: Empty list line (nothing typed after the space, e.g. "2. ", "b. ", or "- ")
+          // Case A: Empty list line (nothing typed after the space, e.g. "2. ", "**2. **", or "- ")
           if (contentAfterPrefix.trim() === '') {
             const linePosStart = blockStart + lineStartOffset;
             const linePosEnd = blockStart + lineEndOffset;
@@ -336,7 +345,7 @@ export const NumberedListBehavior = Extension.create({
               const removeCount = Math.min(indentSize, leadingIndent.length);
               const newIndent = leadingIndent.slice(0, -removeCount);
               const startMarker = getNestedStartingMarker(marker);
-              const newPrefix = `${newIndent}${startMarker} `;
+              const newPrefix = `${newIndent}${openDelim}${startMarker}${closeDelim}${spaceAfterMarker}`;
               const tr = state.tr.replaceWith(linePosStart, linePosEnd, state.schema.text(newPrefix));
               const targetPos = linePosStart + newPrefix.length;
               view.dispatch(tr.setSelection(TextSelection.create(tr.doc, targetPos)).scrollIntoView());
@@ -349,11 +358,11 @@ export const NumberedListBehavior = Extension.create({
             return true;
           }
 
-          // Case B: List line has content after space (e.g. "1. a", "a. foo", or "- sadsa")
+          // Case B: List line has content after space (e.g. "1. a", "**1. a**", or "- sadsa")
           if (col >= prefixLen) {
             const textAfterCursor = lineText.slice(col);
             const nextMarker = getNextMarker(marker);
-            const nextPrefix = `${leadingIndent}${nextMarker} `;
+            const nextPrefix = `${leadingIndent}${openDelim}${nextMarker}${closeDelim}${spaceAfterMarker}`;
 
             if (col === lineEndOffset) {
               // Cursor at line end
@@ -365,7 +374,14 @@ export const NumberedListBehavior = Extension.create({
               );
               let tr = state.tr.insert(insertPos, newParagraph);
               if (isSequential) {
-                renumberSubsequentItems(tr, insertPos + newParagraph.nodeSize, leadingIndent, nextMarker);
+                renumberSubsequentItems(
+                  tr,
+                  insertPos + newParagraph.nodeSize,
+                  leadingIndent,
+                  nextMarker,
+                  openDelim,
+                  closeDelim
+                );
               }
 
               const cursorTarget = insertPos + 1 + nextPrefix.length;
@@ -384,7 +400,14 @@ export const NumberedListBehavior = Extension.create({
               );
               tr = tr.insert(afterPos, newParagraph);
               if (isSequential) {
-                renumberSubsequentItems(tr, afterPos + newParagraph.nodeSize, leadingIndent, nextMarker);
+                renumberSubsequentItems(
+                  tr,
+                  afterPos + newParagraph.nodeSize,
+                  leadingIndent,
+                  nextMarker,
+                  openDelim,
+                  closeDelim
+                );
               }
 
               const cursorTarget = afterPos + 1 + nextPrefix.length;
@@ -526,8 +549,8 @@ export const NumberedListBehavior = Extension.create({
         // Because the paragraph has visual hanging indent (.flint-list-hanging), continuation lines
         // after <br> are already visually aligned flush beneath the list item text (Google Docs style)
         // while preserving clean markdown and effortless single-keystroke Backspace deletion.
-        const listMatch = lineText.match(/^([ \t]*)(\d+\.|[a-zA-Z]{1,2}\.|[-*+])( *)(.*)$/);
-        if (listMatch && hardBreakType) {
+        const listInfo = matchLineListPrefix(lineText);
+        if (listInfo && hardBreakType) {
           let tr = state.tr.replaceSelectionWith(hardBreakType.create());
           dispatch(tr.scrollIntoView());
           return true;
